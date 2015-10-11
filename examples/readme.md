@@ -1,0 +1,1 @@
+Example images, and an example blue noise mask.
