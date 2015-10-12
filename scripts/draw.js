@@ -57,8 +57,11 @@ define([
           var radius = points[i+PRADIUS];
           var colorid = points[i+PID];
           
-          x += (util.random()-0.5)*RAND_FAC*szfac;
-          y += (util.random()-0.5)*RAND_FAC*szfac;
+          var inten = points[i+PINTEN];
+          
+          //increase randomness in dark areas
+          x += (util.random()-0.5)*RAND_FAC*(2.0 - inten)*szfac;
+          y += (util.random()-0.5)*RAND_FAC*(2.0 - inten)*szfac;
           
           if (colorid != si) {
             continue;

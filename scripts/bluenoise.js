@@ -62,7 +62,7 @@ define([
           
           //uncomment for hexagon pattern
           if ((~~x)%2 == 0) {
-          //  y -= 0.5;
+            y -= 0.5;
           }
           
           x /= size;

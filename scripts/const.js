@@ -5,12 +5,12 @@
 var PX=0, PY=1, PRADIUS=2, PINTEN=3, PID=4, PTOT=5;
 
 window.DIMEN = 100;
-window.DRAW_RMUL = 1.75;
+window.DRAW_RMUL = 2.1;
 window.SCALE = 1.0;
 window.PANX = 0.0;
 window.PANY = 0.0;
 window.STEPS = 5000;
-window.RAND_FAC = 1.0;
+window.RAND_FAC = 0.55;
 
 window.NO_IMAGE_FILTER = false;
 
