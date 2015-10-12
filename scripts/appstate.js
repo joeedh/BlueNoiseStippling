@@ -613,6 +613,8 @@ define([
     bind_slider("panx", "Pan X", -1.5, 1.5, 0.01, false);
     bind_slider("pany", "Pan Y", -1.5, 1.5, 0.01, false);
     
+    bind_check("correct_for_spacing", "Correct For Spacing");
+    
     _appstate.init();
     
     document.getElementById("input").addEventListener("change", function(e) {

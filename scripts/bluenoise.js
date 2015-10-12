@@ -60,11 +60,6 @@ define([
           var ix = ~~(((x*mscale) % cw)+0.5);
           var iy = ~~(((y*mscale) % ch)+0.5);
           
-          //hexagon pattern
-          //if (HEXAGON_MODE  && (~~x)%2 == 0) {
-          //  y -= 0.5;
-         // }
-          
           x /= size;
           y /= size;
           
@@ -100,24 +95,27 @@ define([
           var dg = (clr1[1]-clr2[1]);
           var db = (clr1[2]-clr2[2]);
           
-          var avg = (clr[0]+clr[1]+clr[2])/3.0;
-          var sat = Math.abs(avg-clr[0]) +  Math.abs(avg-clr[1]) +  Math.abs(avg-clr[2]);
-          sat /= 3.0;
-          
-          var ffac = Math.pow(1.0-f, 0.5);
-          ffac = 1.0 - f*f;
-          
-          //scale color error by spacing of points
-          dr *= ffac;
-          dg *= ffac;
-          db *= ffac;
-          
           var sat = Math.abs(1.0-clr[0]) +  Math.abs(1.0-clr[1]) +  Math.abs(1.0-clr[2]);
           sat /= 3.0;
           
           if (ADAPTIVE_COLOR_DENSITY) {
             //scale spacing of points by saturation (how much color there is)
             f *= 1.0-sat;
+          }
+          
+          
+          //scale color error by spacing of points
+          if (CORRECT_FOR_SPACING) {
+            var avg = (clr[0]+clr[1]+clr[2])/3.0;
+            var sat2 = Math.abs(avg-clr[0]) +  Math.abs(avg-clr[1]) +  Math.abs(avg-clr[2]);
+            sat2 /= 3.0;
+            
+            var ffac = Math.pow(1.0-f, 0.5);
+            ffac = 1.0 - f*f*sat2;
+            
+            dr *= ffac;
+            dg *= ffac;
+            db *= ffac;
           }
           
           //apply error diffusion to color

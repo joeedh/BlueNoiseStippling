@@ -12,6 +12,8 @@ window.PANY = 0.0;
 window.STEPS = 5000;
 window.RAND_FAC = 0.55;
 
+window.CORRECT_FOR_SPACING = true;
+
 window.HEXAGON_MODE = true;
 window.ADAPTIVE_COLOR_DENSITY = true;
 
