@@ -59,6 +59,12 @@ define([
           
           var inten = points[i+PINTEN];
           
+          var ix = ~~((x*0.5+0.5)*size);
+          
+          if (HEXAGON_MODE && ix%2==0) {
+            y -= 0.5/size;
+          }
+          
           //increase randomness in dark areas
           x += (util.random()-0.5)*RAND_FAC*(2.0 - inten)*szfac;
           y += (util.random()-0.5)*RAND_FAC*(2.0 - inten)*szfac;

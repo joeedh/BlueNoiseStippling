@@ -599,9 +599,11 @@ define([
 
     bind_check("dither_colors", "Dither Colors");
     bind_check("show_colors", "Show Colors");
-  
+    bind_check("adaptive_color_density", "More Dense In Colored Areas")
+    bind_check("hexagon_mode", "Arrange Points As Hexagons");
+    
     //function bind_slider(name, textlabel, min, max, step, is_int)
-    bind_slider("pal_colors", "Palette Colors Dim", 1, 32, 1, true);
+    bind_slider("pal_colors", "Number of Colors (Times 9)", 1, 32, 1, true);
     
     //bind_slider will have loaded store setting from localStorage,
     //if it exists

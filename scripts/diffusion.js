@@ -29,6 +29,7 @@ define([
       }
       
       this.get_cache = new Array(32);
+      
       for (var i=0; i<this.get_cache.length; i++) {
         var fil = new Array(this.filter.length);
         

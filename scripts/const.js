@@ -12,6 +12,9 @@ window.PANY = 0.0;
 window.STEPS = 5000;
 window.RAND_FAC = 0.55;
 
+window.HEXAGON_MODE = true;
+window.ADAPTIVE_COLOR_DENSITY = true;
+
 window.NO_IMAGE_FILTER = false;
 
 window.RENDERED_IMAGE_SIZE = 1024;

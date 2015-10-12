@@ -60,10 +60,10 @@ define([
           var ix = ~~(((x*mscale) % cw)+0.5);
           var iy = ~~(((y*mscale) % ch)+0.5);
           
-          //uncomment for hexagon pattern
-          if ((~~x)%2 == 0) {
-            y -= 0.5;
-          }
+          //hexagon pattern
+          //if (HEXAGON_MODE  && (~~x)%2 == 0) {
+          //  y -= 0.5;
+         // }
           
           x /= size;
           y /= size;
@@ -115,9 +115,11 @@ define([
           var sat = Math.abs(1.0-clr[0]) +  Math.abs(1.0-clr[1]) +  Math.abs(1.0-clr[2]);
           sat /= 3.0;
           
-          //scale spacing of points by saturation (how much color there is)
-          f *= 1.0-sat;
-         
+          if (ADAPTIVE_COLOR_DENSITY) {
+            //scale spacing of points by saturation (how much color there is)
+            f *= 1.0-sat;
+          }
+          
           //apply error diffusion to color
           var fil = this.filter.get(f);
           
