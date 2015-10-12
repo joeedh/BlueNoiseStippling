@@ -1,12 +1,13 @@
 # BlueNoiseStippling
 
+This is a little stippling app.  It uses a blue noise mask to position
+dots, and Floyd Steinberg dithering to color them.
+
 [Click here to try it out](http://joeedh.github.io/BlueNoiseStippling/bluenoise6.html)
 
 ![example image](http://joeedh.github.io/BlueNoiseStippling/examples/stippe_2.png "Example 1")
 
-This is a little stippling app.  It uses a blue noise mask to position
-dots, and Floyd Steinberg dithering to color them.  The blue noise mask
-was inspired by this paper:
+The app was inspired by this paper (actually, it's associated (and expired) patent application):
 
 http://www.ece.rochester.edu/projects/Parker/Pubs%20PDF%20versions/44_DigHalfBNM.pdf
 
