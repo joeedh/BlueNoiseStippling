@@ -443,6 +443,26 @@ define([
           this.seed(seed);
       },
       
+      function save() {
+        var mt = new Uint32Array(this.mt.length);
+        
+        for (var i=0; i<mt.length; i++) {
+          mt[i] = this.mt[i];
+        }
+        
+        return {
+          index : this.index,
+          mt    : mt,
+        }
+      },
+      
+      function load(mt) {
+        this.mt = mt.mt;
+        this.index = mt.index;
+        
+        return this;
+      },
+      
       function seed(seed) {
           // Initialize the index to 0
           this.index = 624;
@@ -499,6 +519,17 @@ define([
   
   exports.seed = function(n) {
     _mt.seed(n);
+  }
+  
+  var _seedstack = exports._seedstack = [];
+  exports.seed.push = function(seed) {
+    _seedstack.push(_mt.save());
+    
+    _mt.seed(seed == undefined ? 0 : seed);
+  }
+  
+  exports.seed.pop = function() {
+    _mt.load(_seedstack.pop());
   }
   
   return exports;

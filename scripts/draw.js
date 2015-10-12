@@ -48,11 +48,17 @@ define([
         g.fillStyle = "rgba(" + r + "," + g1 + "," + b + ",1.0)";
         g.beginPath();
         
+        util.seed.push(0);
+        var szfac = 1.0 / this.bluenoise.gridsize;
+        
         for (var i=0; i<points.length; i += PTOT) {
           var x = points[i];
           var y = points[i+1];
           var radius = points[i+PRADIUS];
           var colorid = points[i+PID];
+          
+          x += (util.random()-0.5)*RAND_FAC*szfac;
+          y += (util.random()-0.5)*RAND_FAC*szfac;
           
           if (colorid != si) {
             continue;
@@ -66,6 +72,8 @@ define([
         
         g.fill();
       }
+      
+      util.seed.pop();
     },
     
     function draw(g) {

@@ -53,8 +53,9 @@ define([
           var gx = x, gy = y;
           
           //add some randomness
-          x += (Math.random()-0.5)*RAND_FAC;
-          y += (Math.random()-0.5)*RAND_FAC;
+          //this now happens during draw
+          //x += (Math.random()-0.5)*RAND_FAC;
+          //y += (Math.random()-0.5)*RAND_FAC;
           
           var ix = ~~(((x*mscale) % cw)+0.5);
           var iy = ~~(((y*mscale) % ch)+0.5);
