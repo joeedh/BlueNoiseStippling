@@ -10,6 +10,7 @@ window.SCALE = 1.0;
 window.PANX = 0.0;
 window.PANY = 0.0;
 window.STEPS = 5000;
+window.RAND_FAC = 0;
 
 window.NO_IMAGE_FILTER = false;
 

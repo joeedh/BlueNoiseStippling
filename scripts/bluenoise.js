@@ -53,8 +53,8 @@ define([
           var gx = x, gy = y;
           
           //add some randomness
-          x += (Math.random()-0.5)*0.34;
-          y += (Math.random()-0.5)*0.34;
+          x += (Math.random()-0.5)*RAND_FAC;
+          y += (Math.random()-0.5)*RAND_FAC;
           
           var ix = ~~(((x*mscale) % cw)+0.5);
           var iy = ~~(((y*mscale) % ch)+0.5);
@@ -178,8 +178,8 @@ define([
             continue;
           }
           
-          x += (1.0-f)*1.25*(Math.random()-0.5)/size;
-          y += (1.0-f)*1.25*(Math.random()-0.5)/size;
+          //x += (1.0-f)*1.25*(Math.random()-0.5)/size;
+          //y += (1.0-f)*1.25*(Math.random()-0.5)/size;
           
           this.points.push(x);
           this.points.push(y);

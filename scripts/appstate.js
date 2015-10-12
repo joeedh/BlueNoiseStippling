@@ -549,14 +549,15 @@ define([
     });
     
     bind_button("step", "Step", function() {
-      _appstate.step();
+      _appstate.bluenoise.step();
       redraw_all();
     });
     
     bind_slider("dimen", "Density", 1, 2048, 1, true);
     bind_slider("steps", "Points Per Step", 1, 50000, 1, true);
     bind_slider("draw_rmul", "Point Size", 0.1, 5.0, 0.01, false);
-
+    bind_slider("rand_fac", "Added Randomness", 0.0, 3.0,0.005, false);
+    
     bind_button("save_img", "Save Rendered Image", function() {
       var size = RENDERED_IMAGE_SIZE;
       
