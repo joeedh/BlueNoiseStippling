@@ -12,3 +12,5 @@ with recent clever algorithms, quite fast) approach.
 
 To run, just load bluenoise6.html in a web browser (tested with Chrome and Firefox).
 
+Play around with the parameters a bit.  They tend to vary depending on what you are
+looking for, and the color profile of the image you've loaded.
