@@ -20,4 +20,7 @@ To run, just load bluenoise6.html in a web browser (tested with Chrome and Firef
 Play around with the parameters a bit.  They tend to vary depending on what you are
 looking for, and the color profile of the image you've loaded.
 
+Note that for many of the parameters you have to regenerate the image with 'reset';
+you can tell because the image won't immediately update itself.
+
 ![example image](http://joeedh.github.io/BlueNoiseStippling/examples/stippe_1.png "Example 2")

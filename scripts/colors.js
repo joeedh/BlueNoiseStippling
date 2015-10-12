@@ -12,7 +12,51 @@ define([
   
   exports.gen_colors = function gen_colors() {
     colors.length = 0;
+    
+    /*
+    
+    //colors.push([0, 0, 0]);
+    colors.push([1, 0, 0]);
+    colors.push([0, 1, 0]);
+    //colors.push([1, 1, 0]);
+    colors.push([0, 0, 1]);
+    //colors.push([0, 1, 1]);
+    //colors.push([0, 0, 0.5]);
+    //colors.push([0, 0.5, 0.5]);
+    //colors.push([0.5, 0.5, 0]);
+    
+    return;
+    
+    //*/
+    
+    colors.length = 0;
     var base = PAL_COLORS;
+    
+    //teal 2
+    for (var i=0; i<base; i++) {
+      var clr = [0, 0.7, (i+1)/base]; 
+      colors.push(clr)
+    }
+    
+    //blue
+    for (var i=0; i<base*2; i++) {
+      var clr = [0, 0, (i+1)/(base*2)]; 
+      colors.push(clr)
+    }
+    
+    //evil!
+    var totpurple = ALLOW_PURPLE ? base : 0;
+    
+    for (var i=0; i<totpurple; i++) {
+      var clr = [(i+1)/totpurple, 0, (i+1)/totpurple]; 
+      colors.push(clr)
+    }
+    
+    //evil!
+    for (var i=0; i<totpurple; i++) {
+      var clr = [(i+1)/totpurple, 0, 1.0]; 
+      colors.push(clr)
+    }
     
     //red
     for (var i=0; i<base; i++) {
@@ -38,6 +82,12 @@ define([
       colors.push(clr)
     }
     
+    //orange-yellow 3
+    for (var i=0; i<base; i++) {
+      var clr = [(i+1)/base, 0.7, 0]; 
+      colors.push(clr)
+    }
+    
     //green
     for (var i=0; i<base; i++) {
       var clr = [0, (i+1)/base, 0]; 
@@ -48,32 +98,6 @@ define([
     for (var i=0; i<base; i++) {
       var clr = [0, (i+1)/base, (i+1)/base]; 
       colors.push(clr)
-    }
-    
-    //teal 2
-    for (var i=0; i<base; i++) {
-      var clr = [0, 0.7, (i+1)/base]; 
-      colors.push(clr)
-    }
-    
-    //blue
-    for (var i=0; i<base*2; i++) {
-      var clr = [0, 0, (i+1)/(base*2)]; 
-      colors.push(clr)
-    }
-    
-    //evil!
-    var totpurple = base;
-    for (var i=0; i<totpurple; i++) {
-      var clr = [0.25*(i+1)/totpurple, 0, 0.25*(i+1)/totpurple]; 
-      //colors.push(clr)
-    }
-    
-    //evil!
-    var totpurple = base;
-    for (var i=0; i<totpurple; i++) {
-      var clr = [0.25*(i+1)/totpurple, 0, 1.0]; 
-      //colors.push(clr)
     }
   }
 
@@ -101,6 +125,10 @@ define([
         var dis2 = dis != 0.0 ? Math.sqrt(dis) : 0.0; 
         
         dis = 0.5*dis2 + 0.5*dis;
+      }
+      
+      if (DITHER_COLORS) { //small random factor
+        dis += (Math.random()-0.5)*0.1;
       }
       
       if (mindis == undefined || dis < mindis) {

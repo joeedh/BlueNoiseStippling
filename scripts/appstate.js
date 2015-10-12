@@ -601,6 +601,7 @@ define([
     bind_check("show_colors", "Show Colors");
     bind_check("adaptive_color_density", "More Dense In Colored Areas")
     bind_check("hexagon_mode", "Arrange Points As Hexagons");
+    bind_check("allow_purple", "Include Purple In Palette");
     
     //function bind_slider(name, textlabel, min, max, step, is_int)
     bind_slider("pal_colors", "Number of Colors (Times 9)", 1, 32, 1, true);
