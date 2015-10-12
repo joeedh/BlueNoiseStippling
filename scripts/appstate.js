@@ -548,7 +548,7 @@ define([
       redraw_all();
     });
     
-    bind_button("step", "Step", function() {
+    bind_button("step", "Generate Points", function() {
       _appstate.bluenoise.step();
       redraw_all();
     });
