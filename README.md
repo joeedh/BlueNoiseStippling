@@ -1,5 +1,7 @@
 # BlueNoiseStippling
 
+[Click here to try it out](http://joeedh.github.io/BlueNoiseStippling/bluenoise6.html)
+
 This is a little stippling app.  It uses a blue noise mask to position
 dots, and Floyd Steinberg dithering to color them.  The blue noise mask
 was inspired by this paper:
