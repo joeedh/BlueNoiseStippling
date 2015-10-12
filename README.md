@@ -2,6 +2,10 @@
 
 [Click here to try it out](http://joeedh.github.io/BlueNoiseStippling/bluenoise6.html)
 
+http://joeedh.github.io/BlueNoiseStippling/examples/stippe_2.png
+
+![example image](http://joeedh.github.io/BlueNoiseStippling/examples/stippe_2.png "Example 1")
+
 This is a little stippling app.  It uses a blue noise mask to position
 dots, and Floyd Steinberg dithering to color them.  The blue noise mask
 was inspired by this paper:
@@ -16,3 +20,5 @@ To run, just load bluenoise6.html in a web browser (tested with Chrome and Firef
 
 Play around with the parameters a bit.  They tend to vary depending on what you are
 looking for, and the color profile of the image you've loaded.
+
+![example image](http://joeedh.github.io/BlueNoiseStippling/examples/stippe_1.png "Example 2")
