@@ -555,7 +555,7 @@ define([
     
     bind_slider("dimen", "Density", 1, 2048, 1, true);
     bind_slider("steps", "Points Per Step", 1, 50000, 1, true);
-    bind_slider("draw_rmul", "Point Size", 0.1, 15.0, 0.01, false);
+    bind_slider("draw_rmul", "Point Size", 0.1, 8.0, 0.01, false);
     bind_slider("rand_fac", "Added Random", 0.0, 3.0,0.005, false);
     bind_slider("dither_rand_fac", "Dither Random", 0.0, 3.0,0.005, false);
     

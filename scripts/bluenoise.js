@@ -76,7 +76,7 @@ define([
           var threshold = mask[idx]/255.0;
           
           var ok = 0;
-          var ditherfac = 0.2*(Math.random()-0.5)*(0.2 + 0.06*f*f);
+          var ditherfac = 0.15*(Math.random()-0.5)*(0.2 + 0.06*f*f);
           
           //blue noise mask has to be downsampled (this is by design,
           //to hopefully make it more accurate)
@@ -96,8 +96,8 @@ define([
               if (f < mask[idx2]/255.0 + ditherfac) {
                 ok++;
                 
-                sumx += i/cw;
-                sumy += j/ch;
+                sumx += i/size;
+                sumy += j/size;
               }
             }
           }
