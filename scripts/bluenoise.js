@@ -45,6 +45,7 @@ define([
       
       var mask = this.mask.data.data;
       var mscale = 4;
+      var clr1 = [0, 0, 0];
       
       for (var si=0; si<steps; si++, this.cur++) {
           var x = this.cur % size;
@@ -71,16 +72,54 @@ define([
             continue; //sampler requested we discard this sample
           }
           
-          var ix2 = ~~((x*0.5+0.5)*size);
-          var iy2 = ~~((y*0.5+0.5)*size);
+          var idx = (iy*cw + ix)*4; 
+          var threshold = mask[idx]/255.0;
           
-          var gidx = (iy2*size+ix2)*3;
+          var ok = 0;
+          var ditherfac = 0.2*(Math.random()-0.5)*(0.2 + 0.06*f*f);
+          
+          //blue noise mask has to be downsampled (this is by design,
+          //to hopefully make it more accurate)
+          var sumx = 0, sumy = 0;
+          
+          for (var i=0; i<wid; i++) {
+            for (var j=0; j<wid; j++) {
+              var ix2 = (ix+i) % cw;
+              var iy2 = (iy+j) % ch;
+              
+              var idx2 = (iy2*cw + ix2)*4;
+              
+              if (mask[idx2+3] < 70) {
+                continue;
+              }
+              
+              if (f < mask[idx2]/255.0 + ditherfac) {
+                ok++;
+                
+                sumx += i/cw;
+                sumy += j/ch;
+              }
+            }
+          }
+          
+          if (ok && !GRID_MODE) {
+            sumx /= ok;
+            sumy /= ok;
+            
+            x += sumx*mscale;
+            y += sumy*mscale;
+          }
+          
+          var igx = ~~((x*0.5+0.5)*size);
+          var igy = ~~((y*0.5+0.5)*size);
+          
+          var gidx = (igy*size + igx)*3;
           
           //var f = (clr[0]*0.4026 + clr[1]*0.4052 + clr[2]*0.2022)*0.8;
           var f = clr[0]*clr[0] + clr[1]*clr[1] + clr[2]*clr[2];
           f = f != 0.0 ? Math.sqrt(f) / Math.sqrt(3.0) : 0.0;
           
-          var clr1 = [clr[0], clr[1], clr[2]];
+          clr1[0] = clr[0]; clr1[1] = clr[1]; clr1[2] = clr[2];
           
           if (DITHER_COLORS) {
             clr1[0] += grid[gidx];
@@ -103,7 +142,6 @@ define([
             f *= 1.0-sat;
           }
           
-          
           //scale color error by spacing of points
           if (CORRECT_FOR_SPACING) {
             var avg = (clr[0]+clr[1]+clr[2])/3.0;
@@ -118,6 +156,8 @@ define([
             db *= ffac;
           }
           
+          var wid = mscale;
+          
           //apply error diffusion to color
           var fil = this.filter.get(f);
           
@@ -126,20 +166,20 @@ define([
               var fi2 = fi;
               var fj2 = fj - 2;
               
-              if (ix2+fi2 >= size || iy2+fj2 >= size) {
+              if (igx+fi2 >= size || igy+fj2 >= size) {
                 continue;
               }
-              if (ix2+fi2 < 0 || iy2+fj2 < 0) {
+              if (igx+fi2 < 0 || igy+fj2 < 0) {
                 continue;
               }
               
-              var fmul = 1.0 //4 * Math.random();
+              var fmul = this.filter.wrand*(Math.random()-0.5);
               
-              var gidx2 = ((iy2+fi2)*size + ix2+fj2)*3;
+              var gidx2 = ((igy+fi2)*size + igx+fj2)*3;
 
-              grid[gidx2] += fil[fi][fj]*dr*fmul;
-              grid[gidx2+1] += fil[fi][fj]*dg*fmul;
-              grid[gidx2+2] += fil[fi][fj]*db*fmul;
+              grid[gidx2] += fil[fi][fj]*dr +fmul;
+              grid[gidx2+1] += fil[fi][fj]*dg + fmul;
+              grid[gidx2+2] += fil[fi][fj]*db + fmul;
               
               grid[gidx2] = Math.min(Math.max(grid[gidx2], -1.0), 1.0);
               grid[gidx2+1] = Math.min(Math.max(grid[gidx2+1], -1.0), 1.0);
@@ -147,40 +187,9 @@ define([
             }
           }
           
-          var idx = (iy*cw + ix)*4; 
-          
-          var threshold = mask[idx]/255.0;
-          
-          var ok = 0;
-          var ditherfac = 0.2*(Math.random()-0.5)*(0.2 + 0.06*f*f);
-          
-          var wid = mscale;
-          
-          //blue noise mask has to be downsampled (this is by design,
-          //to hopefully make it more accurate)
-          for (var i=0; i<wid; i++) {
-            for (var j=0; j<wid; j++) {
-              var ix2 = (ix+i) % cw;
-              var iy2 = (iy+j) % ch;
-              
-              var idx2 = (iy2*cw + ix2)*4;
-              
-              if (mask[idx2+3] < 70) {
-                continue;
-              }
-              
-              ok += !!(f < mask[idx2]/255.0 + ditherfac);
-              
-              continue;
-            }
-          }
-          
           if (!ok) {
             continue;
           }
-          
-          //x += (1.0-f)*1.25*(Math.random()-0.5)/size;
-          //y += (1.0-f)*1.25*(Math.random()-0.5)/size;
           
           this.points.push(x);
           this.points.push(y);

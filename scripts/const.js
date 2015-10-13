@@ -11,14 +11,18 @@ window.DRAW_RMUL = 2.1;
 window.SCALE = 1.0;
 window.PANX = 0.0;
 window.PANY = 0.0;
+window.ACCUM_ALPHA = 0.3;
 
+window.GRID_MODE = false;
+window.DRAW_TRANSPARENT = false;
 window.STEPS = 5000;
-window.RAND_FAC = 0.55;
+window.RAND_FAC = 0.4;
+window.DITHER_RAND_FAC = 0.05;
 
 window.ALLOW_PURPLE = true;
-window.CORRECT_FOR_SPACING = true;
+window.CORRECT_FOR_SPACING = false;
 
-window.HEXAGON_MODE = true;
+window.HEXAGON_MODE = false;
 window.ADAPTIVE_COLOR_DENSITY = true;
 
 window.NO_IMAGE_FILTER = false;

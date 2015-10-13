@@ -555,8 +555,9 @@ define([
     
     bind_slider("dimen", "Density", 1, 2048, 1, true);
     bind_slider("steps", "Points Per Step", 1, 50000, 1, true);
-    bind_slider("draw_rmul", "Point Size", 0.1, 5.0, 0.01, false);
-    bind_slider("rand_fac", "Added Randomness", 0.0, 3.0,0.005, false);
+    bind_slider("draw_rmul", "Point Size", 0.1, 15.0, 0.01, false);
+    bind_slider("rand_fac", "Added Random", 0.0, 3.0,0.005, false);
+    bind_slider("dither_rand_fac", "Dither Random", 0.0, 3.0,0.005, false);
     
     bind_button("save_img", "Save Rendered Image", function() {
       var size = RENDERED_IMAGE_SIZE;
@@ -578,6 +579,12 @@ define([
       var g = canvas.getContext("2d");
       canvas.width = w;
       canvas.height = h;
+      
+      //make sure we have white background, not zero alpha
+      g.beginPath();
+      g.rect(0, 0, w, h);
+      g.fillStyle = "white";
+      g.fill();
       
       var scale = Math.min(canvas.width, canvas.height);
       
@@ -602,6 +609,10 @@ define([
     bind_check("adaptive_color_density", "More Dense In Colored Areas")
     bind_check("hexagon_mode", "Arrange Points As Hexagons");
     bind_check("allow_purple", "Include Purple In Palette");
+    bind_check("grid_mode", "Be More Grid Like");
+    
+    bind_check("draw_transparent", "Accumulation Mode");
+    bind_slider("accum_alpha", "Accum Alpha", 0.001, 1.0, 0.001, false);
     
     //function bind_slider(name, textlabel, min, max, step, is_int)
     bind_slider("pal_colors", "Number of Colors (Times 9)", 1, 32, 1, true);

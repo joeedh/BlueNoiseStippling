@@ -128,7 +128,7 @@ define([
       }
       
       if (DITHER_COLORS) { //small random factor
-        dis += (Math.random()-0.5)*0.1;
+        dis += (Math.random()-0.5)*DITHER_RAND_FAC;
       }
       
       if (mindis == undefined || dis < mindis) {

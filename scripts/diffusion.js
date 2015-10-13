@@ -88,54 +88,23 @@ define([
   var basic_filter = exports.basic_filter = function basic_filter() {
     var fil = [];
 
-    var wmax = 0.0;
-    for (var i=0; i<4; i++) {
-      var row = [];
-      fil.push(row);
-      
-      for (var j=0; j<6; j++) {
-        var w = i*i + j*j;
-        wmax = Math.max(w, wmax);
-        
-        row.push(w);
-      }
-    }
-    
-    wmax = wmax != 0.0 ? 1.0/wmax : 0.0;
-    
-    fil[0][0] = fil[0][1] = fil[0][2] = 0.0;
-    
-    var tot = 0.0;
-    for (var i=0; i<4; i++) {
-      for (var j=0; j<6; j++) {
-        if (i == 0 && j < 3) {
-          continue;
-        }
-        
-        fil[i][j] = 1.0 - fil[i][j]*wmax;
-        
-        tot += fil[i][j];
-      }
-    }
-    
-    tot = tot != 0.0 ? 1.0 / tot : tot;
-    for (var i=0; i<4; i++) {
-      for (var j=0; j<6; j++) {
-        fil[i][j] *= tot;
-      }
-    }
     //floyd steinberg
     var fil = [
-      [0, 0, 0, 7, 0],
+      [0, 0, 0, 7, 2],
       [0, 3, 5, 1, 0],
-      [0, 0, 0, 0, 0],
-      //[0, 0, 0, 0, 0, 0]
     ];
     
-    var ret = new Filter([0.0, fil, 0.0, 0.0]);
+    //shiau fan
+    /*
+    var fil = [
+      [0, 0, 0, 8, 0],
+      [1, 2, 4, 1, 0],
+      [1/2, 1, 2, 1/2, 0],
+    ];
+    //*/
     
-    ret.rand = 1.0;
-    ret.wrand = 0.3;
+    var ret = new Filter([0.0, fil, 0.0, 0.0]);
+    ret.wrand = 0.0;
     
     return ret;
   }

@@ -40,12 +40,17 @@ define([
         var r = ~~(c[0]*255);
         var g1 = ~~(c[1]*255);
         var b = ~~(c[2]*255);
+        var alpha = 1.0;
+        
+        if (DRAW_TRANSPARENT) {
+          alpha = ACCUM_ALPHA;
+        }
         
         if (!SHOW_COLORS) {
           r=g1=b=1.0;
         }
         
-        g.fillStyle = "rgba(" + r + "," + g1 + "," + b + ",1.0)";
+        g.fillStyle = "rgba(" + r + "," + g1 + "," + b + ","+alpha+")";
         g.beginPath();
         
         util.seed.push(0);
@@ -75,11 +80,21 @@ define([
 
           var w = radius/2.0;
           
+          if (DRAW_TRANSPARENT) {
+            g.beginPath()
+          }
+          
           g.moveTo(x, y);
           g.arc(x, y, w*DRAW_RMUL, 0, Math.PI*2);
+          
+          if (DRAW_TRANSPARENT) {
+            g.fill();
+          }
         }      
         
-        g.fill();
+        if (!DRAW_TRANSPARENT) {
+          g.fill();
+        }
       }
       
       util.seed.pop();
