@@ -106,8 +106,8 @@ define([
             sumx /= ok;
             sumy /= ok;
             
-            x += sumx*mscale;
-            y += sumy*mscale;
+            x += sumx;//*mscale*0.5;
+            y += sumy;//*mscale*0.5;
           }
           
           var igx = ~~((x*0.5+0.5)*size);
