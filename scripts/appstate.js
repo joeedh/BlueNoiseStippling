@@ -217,14 +217,12 @@ define([
         
         var filterw = img.width/this2.bluenoise.gridsize;
         var filterh = img.height/this2.bluenoise.gridsize;
-        var filter = Math.max(filterw*0.5, filterh*0.5)*0.8+0.16725;
+        var filter = Math.max(filterw*0.5, filterh*0.5)*1.5+2;
         
         var fwid = Math.ceil(filter);
-        fwid = Math.max(fwid, 1.0);
+        fwid = Math.max(fwid, 3.0);
         
         var totsample=fwid*fwid;
-        
-        totsample=Math.max(totsample, 4);
         var totsampled = 0;
         
         if (no_filter) {
@@ -235,15 +233,15 @@ define([
         
         var sumr=0, sumg=0, sumb=0, suma=0;
         
+        window._totsample = totsample;
+        
+        var weights = cconst.get_sharpen_filter(fwid);
+        
         for (var i=0; i<totsample; i++) {
           var xoff = ((i % fwid)/fwid-0.5)*2;
           var yoff = ((~~(i/fwid))/fwid-0.5)*2;
           
-          var w = xoff*xoff + yoff*yoff;
-          w = w == 0.0 ? 0.0 : Math.sqrt(w);
-          w = 1.0 - w/Math.sqrt(2.0);
-          
-          w *= w*w*w;
+          var w = weights[i];
           
           xoff *= filter*(1.0/img.width);
           yoff *= filter*(1.0/img.height);
@@ -561,6 +559,9 @@ define([
     
     bind_button("save_img", "Save Rendered Image", function() {
       var size = RENDERED_IMAGE_SIZE;
+      var oldscale = window.SCALE;
+      
+      window.SCALE = 1.0;
       
       console.log("rendering image. . .");
       
@@ -577,6 +578,7 @@ define([
       
       var canvas = document.createElement("canvas");
       var g = canvas.getContext("2d");
+      
       canvas.width = w;
       canvas.height = h;
       
@@ -586,19 +588,21 @@ define([
       g.fillStyle = "white";
       g.fill();
       
-      var scale = Math.min(canvas.width, canvas.height);
+      var scale = 0.5*Math.max(w, h); //canvas.width, canvas.height);
       
       g.scale(scale, scale);
-      g.translate(1.0, 1.0);
+      if (asp > 1.0) {
+        g.translate(1.0, 1.0);
+      } else {
+        g.translate(1.0, 1.0);
+      }
       
       _appstate.drawer.draw_points(g);
       
       console.log("finished rendering image")
-      
+      window.SCALE = oldscale;
+
       var url = canvas.toDataURL();
-      
-      console.log("done.");
-      
       window.open(url);
     });
     

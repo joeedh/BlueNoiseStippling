@@ -152,7 +152,7 @@ define([
         set : setters[k]
       }
       
-      console.log("k", "\""+k+"\"", def, getters[k]);
+    //  console.log("k", "\""+k+"\"", def, getters[k]);
       Object.defineProperty(construct.prototype, k, def);
     }
     

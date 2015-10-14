@@ -90,6 +90,86 @@ define([
   for (var i=0; i<32; i++) {
       get_searchoff(i, true);
   }
+
+
+  var spline = exports.spline = function spline() {
+    var t = arguments[arguments.length-1];
+    
+    for (var i=arguments.length-3; i>=0; i -= 2) {
+      if (t >= arguments[i]) {
+        var ta = arguments[i];
+        var tb = arguments[i < arguments.length-3 ? i + 2 : i];
+        
+        var a = arguments[i+1];
+        var b = arguments[i < arguments.length-3 ? i+3 : i+1];
+        
+        t -= ta;
+        if (tb != ta)
+          t /= tb-ta;
+        
+        return a + (b - a)*t;
+      }
+    }
+    
+    return 0.0;
+  }
+  
+  exports.sharpen_cache = new Array(256);
+  
+  exports.get_sharpen_filter = function(fwid) {
+    if (exports.sharpen_cache[fwid] != undefined) {
+      return exports.sharpen_cache[fwid];
+    }
+    
+    var ret = [];
+    var totsample = fwid*fwid;
+    for (var i=0; i<totsample; i++) {
+      if (0&&totsample == 9) {
+        var d = 2;
+        
+        ret = [
+          -d, -d, -d,
+          -d, 30, -d,
+          -d, -d, -d,
+        ]
+        var tot=0;
+        
+        for (var j=0; j<totsample; j++) {
+          tot += ret[j];
+        }
+        
+        for (var j=0; j<totsample; j++) {
+          ret[j] /= tot;
+        }
+        
+        break
+      }
+      
+      var fwid2 = fwid-1;
+      var xoff = ((i) % fwid)/fwid2;
+      var yoff = (~~((i)/fwid))/fwid2;
+      
+      xoff -= 0.5;
+      yoff -= 0.5;
+      
+      var w = xoff*xoff + yoff*yoff;
+      
+      w = w == 0.0 ? 0.0 : Math.sqrt(w);
+      w = 1.0 - 2.0*w/Math.sqrt(2.0);
+      
+      w = spline(
+        0,0,
+        0.3, -0.3,
+        1.0, 1.5,
+        w
+      );
+      
+      ret.push(w);
+    }
+    
+    exports.sharpen_cache[fwid] = ret;
+    return ret;
+  }
   
   return exports;
 });

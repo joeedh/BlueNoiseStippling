@@ -10,6 +10,74 @@ define([
 
   //very crappy palette generator (it excludes purple, purple is evil!)
   
+  exports.closest_map = undefined;
+  exports.closest_size = undefined;
+  
+  exports.gen_closest_map = function gen_closest_map(size) {
+    if (size == undefined)
+      size = 40;
+    
+    console.log("generating color map of dim", "" + size + "...");
+    
+    var map = new Int32Array(size*size*size);
+    
+    exports.closest_map = map;
+    exports.closest_size = size;
+    
+    var clr = [0, 0, 0];
+    
+    for (var i=0; i<size; i++) {
+      for (var j=0; j<size; j++) {
+        for (var k=0; k<size; k++) {
+          var idx = k*size*size + j*size + i;
+          
+          var u = i / (size-1);
+          var v = j / (size-1);
+          var w = k / (size-1);
+          
+          clr[0] = u, clr[1] = v, clr[2] = w;
+          
+          map[idx] = exports.closest_color(clr);
+        }
+      }
+    }
+    
+    /*
+    for (var i=0; i<map.length; i++) {
+      var x = i % size;
+      var y = ~~((i % (size*size)) / size);
+      var z = ~~(i / (size*size));
+    }
+    //*/
+    
+    console.log("done generating color map");
+    
+    return map;
+  }
+  
+  exports.closest_color_fast = function closest_color_fast(clr) {
+    if (exports.closest_size == undefined) {
+      gen_closest_map();
+    }
+    
+    var size = exports.closest_size;
+    var map = exports.closest_map;
+    
+    var i = ~~(clr[0]*size+0.5);
+    var j = ~~(clr[1]*size+0.5);
+    var k = ~~(clr[2]*size+0.5);
+    
+    i = Math.min(Math.max(i, 0), size-1);
+    j = Math.min(Math.max(j, 0), size-1);
+    k = Math.min(Math.max(k, 0), size-1);
+    
+    var idx = k*size*size + j*size + i;
+    
+    return map[idx];
+  }
+  
+  var _last_map = undefined;
+  
   exports.gen_colors = function gen_colors() {
     colors.length = 0;
     
@@ -99,8 +167,16 @@ define([
       var clr = [0, (i+1)/base, (i+1)/base]; 
       colors.push(clr)
     }
+    
+    var key = ""+PAL_COLORS+","+ALLOW_PURPLE;
+    
+    if (_last_map == undefined || _last_map != key) {
+      exports.gen_closest_map();
+    }
+    
+    _last_map = key;
   }
-
+  
   exports.closest_color = function closest_color(c1) {
     var mindis = undefined;
     var ret = undefined;
@@ -111,9 +187,9 @@ define([
       
       var dis = dr*dr + dg*dg + db*db;
       
-      var w1 = 1.0;
+      var w1 = 0.8;
       var w2 = 1.0;
-      var w3 = 1.0;
+      var w3 = 0.8;
       
       //w1=w2=w3=1.0;
       

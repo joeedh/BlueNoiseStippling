@@ -76,7 +76,7 @@ define([
           var threshold = mask[idx]/255.0;
           
           var ok = 0;
-          var ditherfac = 0.15*(Math.random()-0.5)*(0.2 + 0.06*f*f);
+          var ditherfac = 0.03*(Math.random()-0.5)//*(0.2 + 0.06*f*f);
           
           //blue noise mask has to be downsampled (this is by design,
           //to hopefully make it more accurate)
@@ -106,8 +106,8 @@ define([
             sumx /= ok;
             sumy /= ok;
             
-            x += sumx;//*mscale*0.5;
-            y += sumy;//*mscale*0.5;
+            x += sumx*0.5;//*mscale*0.5;
+            y += sumy*0.5;//*mscale*0.5;
           }
           
           var igx = ~~((x*0.5+0.5)*size);
@@ -127,7 +127,7 @@ define([
             clr1[2] += grid[gidx+2];
           }
           
-          var ci = colors.closest_color(clr1);
+          var ci = colors.closest_color_fast(clr1);
           var clr2 = colors.colors[ci];
 
           var dr = (clr1[0]-clr2[0]);
@@ -139,7 +139,7 @@ define([
           
           if (ADAPTIVE_COLOR_DENSITY) {
             //scale spacing of points by saturation (how much color there is)
-            f *= 1.0-sat;
+            f *= Math.pow(1.0-sat, 2);
           }
           
           //scale color error by spacing of points

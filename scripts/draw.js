@@ -57,10 +57,15 @@ define([
         var szfac = 1.0 / this.bluenoise.gridsize;
         
         for (var i=0; i<points.length; i += PTOT) {
+          var colorid = points[i+PID];
+          
+          if (colorid != si) {
+            continue;
+          }
+          
           var x = points[i];
           var y = points[i+1];
           var radius = points[i+PRADIUS];
-          var colorid = points[i+PID];
           
           var inten = points[i+PINTEN];
           
@@ -73,10 +78,6 @@ define([
           //increase randomness in dark areas
           x += (util.random()-0.5)*RAND_FAC*(2.0 - inten)*szfac;
           y += (util.random()-0.5)*RAND_FAC*(2.0 - inten)*szfac;
-          
-          if (colorid != si) {
-            continue;
-          }
 
           var w = radius/2.0;
           
