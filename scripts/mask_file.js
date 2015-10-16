@@ -1,6 +1,11 @@
-//if we embeddedd the mask image directly,
-//we would have to host it on a server to access it.
-//one of the more annoying DOM security restrictions 
+//this is the only way to access image pixels through 
+//JS without going through a web server.  one of the more
+//annoying DOM security restrictions.  this way the app
+//can be used offline.
+ 
+//even loading the image and rendering it onto a canvas doesn't work.
+//the security rules detect that case.  you can display the image to
+//the user, but JS can't read its pixels.
 
 window.blue_mask_file = ["data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAYAAAD0eN",
 "T6AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUU",

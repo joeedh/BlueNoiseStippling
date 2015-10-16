@@ -48,6 +48,11 @@ define([
       var clr1 = [0, 0, 0];
       
       for (var si=0; si<steps; si++, this.cur++) {
+          if (this.cur >= size*size) {
+            console.log("Done.");
+            break;
+          }
+          
           var x = this.cur % size;
           var y = ~~(this.cur / size);
           
@@ -76,7 +81,7 @@ define([
           var threshold = mask[idx]/255.0;
           
           var ok = 0;
-          var ditherfac = 0.03*(Math.random()-0.5)//*(0.2 + 0.06*f*f);
+          var ditherfac = 0.023*(Math.random()-0.5)//*(0.2 + 0.06*f*f);
           
           //blue noise mask has to be downsampled (this is by design,
           //to hopefully make it more accurate)
@@ -128,6 +133,8 @@ define([
           }
           
           var ci = colors.closest_color_fast(clr1);
+          colors.colors_used[ci]++;
+          
           var clr2 = colors.colors[ci];
 
           var dr = (clr1[0]-clr2[0]);

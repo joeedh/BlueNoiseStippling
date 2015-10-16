@@ -15,12 +15,12 @@ define([
   
   exports.gen_closest_map = function gen_closest_map(size) {
     if (size == undefined)
-      size = 40;
+      size = 20;
     
     console.log("generating color map of dim", "" + size + "...");
     
     var map = new Int32Array(size*size*size);
-    
+     
     exports.closest_map = map;
     exports.closest_size = size;
     
@@ -77,6 +77,8 @@ define([
   }
   
   var _last_map = undefined;
+  
+  var colors_used = exports.colors_used = new Array();
   
   exports.gen_colors = function gen_colors() {
     colors.length = 0;
@@ -175,6 +177,100 @@ define([
     }
     
     _last_map = key;
+    
+    colors_used.length = colors.length;
+    for (var i=0; i<colors.length; i++) {
+      colors_used[i] = 0;
+    }
+  }
+  
+  exports.image_palette = function(maxcolor) {
+    exports.gen_colors();
+    
+    if (maxcolor == undefined)
+      maxcolor = 8;
+    
+    var cw = _appstate.image.width;
+    var ch = _appstate.image.height;
+    var idata = _appstate.image.data.data;
+    
+    var hist = new Int32Array(exports.colors.length);
+    hist.fill(0, 0, hist.length);
+    var clr = [0, 0, 0];
+    
+    var _i=0;
+    for (var ix=0; ix<cw; ix += 4) {
+      if (_i++ % 50 == 0) {
+        console.log("doing column...", ix);
+      }
+      
+      for (var iy=0; iy<ch; iy += 4) {
+        var idx = (iy*cw + ix)*4;
+        
+        var r = idata[idx]/255;
+        var g = idata[idx+1]/255;
+        var b = idata[idx+2]/255;
+        
+        var a = idata[idx+3]/255;
+        
+        if (a < 0.1) {
+          continue;
+        } else {
+          //r = 1.0 - r*a - a;
+          //g = 1.0 - g*a - a;
+          //b = 1.0 - b*a - a;
+        }
+        
+        clr[0] = r;
+        clr[1] = g;
+        clr[2] = b;
+        
+        var ci = exports.closest_color(clr);
+        hist[ci]++;
+      }
+    }
+    
+    var arr = [];
+    for (var i=0; i<hist.length; i++) {
+      arr.push([i, hist[i]]);
+    }
+    
+    function weight(c) {
+      var clr = exports.colors[c[0]];
+      
+      var w = c[1];
+      var avg = (clr[0]+clr[1]+clr[2])/3.0;
+      var sat = (Math.abs(clr[0]-avg) + Math.abs(clr[1]-avg) + Math.abs(clr[2]-avg))/3.0
+      
+      w = w*0.0001 + (sat)*w;
+      
+      return w;
+    }
+    
+    arr.sort(function(a, b) {
+      return weight(b) - weight(a);
+    });
+    
+    arr = arr.slice(0, maxcolor);
+    var newcolors = [];
+    
+    for (var i=0; i<arr.length; i++) {
+      if (arr[i][1] == 0) {
+        break;
+      }
+      
+      newcolors.push(exports.colors[arr[i][0]]);
+    }
+    
+    exports.colors = colors = newcolors;
+    
+    for (var i=0; i<colors.length; i++) {
+      console.log(colors[i]);
+    }
+    
+    exports.gen_closest_map();
+    
+    return colors;
   }
   
   exports.closest_color = function closest_color(c1) {

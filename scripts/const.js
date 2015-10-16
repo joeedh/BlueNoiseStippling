@@ -16,7 +16,7 @@ window.ACCUM_ALPHA = 0.3;
 window.GRID_MODE = false;
 window.DRAW_TRANSPARENT = false;
 window.STEPS = 5000;
-window.RAND_FAC = 0.4;
+window.RAND_FAC = 0.0;
 window.DITHER_RAND_FAC = 0.05;
 
 window.ALLOW_PURPLE = true;
@@ -121,15 +121,26 @@ define([
       return exports.sharpen_cache[fwid];
     }
     
+    function bez4(a, b, c, d, t) {
+      var r1 = a + (b - a)*t;
+      var r2 = b + (c - b)*t;
+      var r3 = c + (d - c)*t;
+      
+      var r4 = r1 + (r2 - r1)*t;
+      var r5 = r2 + (r3 - r2)*t;
+      
+      return r4 + (r5 - r4)*t;
+    }
+    
     var ret = [];
     var totsample = fwid*fwid;
     for (var i=0; i<totsample; i++) {
-      if (0&&totsample == 9) {
+      if (0 && totsample == 9) {
         var d = 2;
         
         ret = [
           -d, -d, -d,
-          -d, 30, -d,
+          -d, 22, -d,
           -d, -d, -d,
         ]
         var tot=0;
@@ -157,12 +168,18 @@ define([
       w = w == 0.0 ? 0.0 : Math.sqrt(w);
       w = 1.0 - 2.0*w/Math.sqrt(2.0);
       
+      /*
       w = spline(
         0,0,
         0.3, -0.3,
-        1.0, 1.5,
+        1.0, 1.3,
         w
       );
+      //*/
+      
+      var fac = 1.3;
+      
+      w = bez4(0, -1.18, 1.55*fac, 1.0, w);
       
       ret.push(w);
     }

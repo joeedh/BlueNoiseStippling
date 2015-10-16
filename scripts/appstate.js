@@ -219,6 +219,14 @@ define([
         var filterh = img.height/this2.bluenoise.gridsize;
         var filter = Math.max(filterw*0.5, filterh*0.5)*1.5+2;
         
+        if (isNaN(filter)) {
+          //throw new Error("'filter' was NaN in sampler!");
+          console.log("EEEK! 'filter' was NaN in sampler!", img.width, img.height,
+                      this2.bluenoise.gridsize);
+        }
+        
+        //filter = isNaN(filter) ? 3.0 : filter;
+        
         var fwid = Math.ceil(filter);
         fwid = Math.max(fwid, 3.0);
         
@@ -238,8 +246,12 @@ define([
         var weights = cconst.get_sharpen_filter(fwid);
         
         for (var i=0; i<totsample; i++) {
-          var xoff = ((i % fwid)/fwid-0.5)*2;
-          var yoff = ((~~(i/fwid))/fwid-0.5)*2;
+          var fwid2 = fwid-1;
+          var xoff = ((i) % fwid)/fwid2;
+          var yoff = (~~((i)/fwid))/fwid2;
+          
+          xoff -= 0.5;
+          yoff -= 0.5;
           
           var w = weights[i];
           
