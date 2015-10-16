@@ -15,7 +15,7 @@ define([
   
   exports.gen_closest_map = function gen_closest_map(size) {
     if (size == undefined)
-      size = 20;
+      size = 40;
     
     console.log("generating color map of dim", "" + size + "...");
     
