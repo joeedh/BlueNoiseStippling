@@ -13,6 +13,7 @@ window.PANX = 0.0;
 window.PANY = 0.0;
 window.ACCUM_ALPHA = 0.3;
 
+window.LOW_RES_CUBE = false;
 window.GRID_MODE = false;
 window.DRAW_TRANSPARENT = false;
 window.STEPS = 5000;

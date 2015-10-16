@@ -15,9 +15,9 @@ define([
   
   exports.gen_closest_map = function gen_closest_map(size) {
     if (size == undefined)
-      size = 40;
+      size = LOW_RES_CUBE ? 20 : 40;
     
-    console.log("generating color map of dim", "" + size + "...");
+    console.trace("generating color map of dim", "" + size + "...");
     
     var map = new Int32Array(size*size*size);
      
@@ -311,8 +311,6 @@ define([
     
     return ret;
   }
-
-  exports.gen_colors();
 
   return exports;
 });

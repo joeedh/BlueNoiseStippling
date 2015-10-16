@@ -1,8 +1,8 @@
 var __appstate = undefined;
 
 define([
-  "util", "const", "bluenoise", "draw", "colors"
-], function(util, cconst, bluenoise, draw, colors) {
+  "util", "const", "bluenoise", "draw", "colors", "ui"
+], function(util, cconst, bluenoise, draw, colors, ui) {
   "use strict";
   
   var exports = __appstate = {};
@@ -343,10 +343,6 @@ define([
     }
   ]);
   
-  window.addEventListener("keydown", function(e) {
-    _appstate.on_keydown(e);
-  });
-  
   function save_setting(key, val) {
     var settings = localStorage.startup_file_bn4;
     
@@ -381,11 +377,20 @@ define([
     
     return settings[key];
   }
+  
+  var lowrescube = load_setting("LOW_RES_CUBE");
+  
+  if (lowrescube !== undefined) {
+    window.LOW_RES_CUBE = true;
+  }
+  
+  window.addEventListener("keydown", function(e) {
+    _appstate.on_keydown(e);
+  });
 
   exports.onload1 = function() {
     console.log("loaded!");
-    console.log("loaded!");
-
+    
     var canvas = document.getElementById("canvas");
     canvas.width = window.innerWidth-30;
     canvas.height = window.innerHeight-25;
@@ -416,141 +421,17 @@ define([
     //these bind functions bind constants from const.js.
     //they typically take the constant name (converted to lowercase)
     //as their first argument
+    var gui2 = new ui.UI();
+    var gui = new ui.UI();
     
-    function bind_check(checkid, textlabel) {
-      var div = document.getElementById('form');
-      
-      var check = document.createElement("input");
-      
-      var stored_val = load_setting(checkid.toUpperCase());
-      
-      if (stored_val != undefined) {
-        window[checkid.toUpperCase()] = stored_val;
-      }
-      
-      if (!(checkid.toUpperCase() in window)) {
-          window[checkid.toUpperCase()] = 0;
-      } else {
-          check.checked = !!window[checkid.toUpperCase()];
-      }
-      
-      check.type = "checkbox";
-      check.id = checkid;
-
-      var tn = document.createTextNode(textlabel);
-      var label = document.createElement("label")
-
-      label.appendChild(check);
-      label.appendChild(tn);
-      
-      var li = document.createElement("li");
-      li.appendChild(label);
-      div.appendChild(li);
-      
-      check.onclick = function(e) {
-        var val = check.checked;
-        
-        window[checkid.toUpperCase()] = check.checked;
-        
-        save_setting(checkid.toUpperCase(), check.checked);
-        redraw_all();
-      }
-    }
+    window.gui = gui;
     
-    function bind_button(id, name, callback, thisvar) {
-      var div = document.getElementById('form');
-      var button = document.createElement("input")
-      var label = document.createElement("label");
-      
-      label.appendChild(button);
-      button.type = "button";
-      button.value = name;
-      
-      button.onclick = function() {
-          if (thisvar != undefined) {
-              callback.apply(thisvar, this);
-          } else {
-              callback(this);
-          }
-      }
-      
-      var li = document.createElement("li");
-      li.appendChild(label);
-      div.appendChild(li);
-      
-      //label.appendChild(document.createTextNode(name));
-    }
+    gui.button('load_image', "Load Image", function() {
+      var input = document.getElementById("input");
+      input.click();
+    });
     
-    function bind_slider(name, textlabel, min, max, step, is_int) {
-      var div = document.getElementById('form');
-      var slider = document.createElement("input")
-      var label = document.createElement("label");
-      
-      var valtext = document.createTextNode("")
-      
-      var sid = name.toUpperCase();
-      
-      label.appendChild(valtext);
-      label.appendChild(slider);
-      label.appendChild(document.createTextNode(textlabel));
-      
-      slider.type = "range";
-      slider.min = min;
-      slider.max = max;
-      slider.value = name;
-      slider.id = name
-
-      if (step != undefined)
-        slider.step  = step;
-      
-      window._slider = slider;
-      
-      var sid = name.toUpperCase();
-      
-      var val2 = load_setting(sid);
-      
-      if (val2 != undefined) {
-        slider.value = val2;
-        window[sid] = slider.valueAsNumber;
-      } else if (window[sid] != undefined) {
-        slider.value = window[sid]
-      }
-      
-      var col = 4;
-      function pad_number(str, n) {
-          while (str.length < n) {
-            str = "0" + str;
-          }
-          
-          return str;
-      }
-
-      valtext.textContent =  is_int ? ~~slider.value : slider.valueAsNumber.toFixed(3);
-      valtext.textContent = pad_number(valtext.textContent, col);
-      
-      slider.onchange = function() {
-          var val = this.valueAsNumber;
-          val = is_int ? ~~val : val;
-          
-          window[sid] = this.valueAsNumber;
-          
-          console.log("Setting", sid, "to", val);
-          save_setting(sid, val);
-          slider.value = val;
-          
-          valtext.textContent = is_int ? ~~slider.value : slider.valueAsNumber.toFixed(3);
-          valtext.textContent = pad_number(valtext.textContent, col);
-          
-          redraw_all();
-      }
-      
-      var li = document.createElement("li")
-      li.appendChild(label);
-      
-      div.appendChild(li);
-    }
-    
-    bind_button("reset", "Reset", function() {
+    gui.button("reset", "Reset", function() {
       colors.gen_colors();
       _appstate.init();
       _appstate.reset();
@@ -558,18 +439,22 @@ define([
       redraw_all();
     });
     
-    bind_button("step", "Generate Points", function() {
+    gui.button("step", "Generate Points", function() {
       _appstate.bluenoise.step();
       redraw_all();
     });
     
-    bind_slider("dimen", "Density", 1, 2048, 1, true);
-    bind_slider("steps", "Points Per Step", 1, 50000, 1, true);
-    bind_slider("draw_rmul", "Point Size", 0.1, 8.0, 0.01, false);
-    bind_slider("rand_fac", "Added Random", 0.0, 3.0,0.005, false);
-    bind_slider("dither_rand_fac", "Dither Random", 0.0, 3.0,0.005, false);
+    var panel = gui.panel("Settings");
     
-    bind_button("save_img", "Save Rendered Image", function() {
+    panel.slider("dimen", "Density", 1, 2048, 1, true);
+    panel.slider("steps", "Points Per Step", 1, 50000, 1, true);
+    panel.slider("draw_rmul", "Point Size", 0.1, 8.0, 0.01, false, true);
+    panel.slider("rand_fac", "Added Random", 0.0, 3.0,0.005, false, true);
+    panel.slider("dither_rand_fac", "Dither Random", 0.0, 3.0,0.005, false);
+    panel.open();
+    
+    panel = gui.panel("Save Tool")
+    panel.button("save_img", "Save Image", function() {
       var size = RENDERED_IMAGE_SIZE;
       var oldscale = window.SCALE;
       
@@ -618,30 +503,36 @@ define([
       window.open(url);
     });
     
-    bind_slider("rendered_image_size", "Rendered Image Size", 1, 4096, 1, true);
+    panel.slider("rendered_image_size", "Rendered Image Size", 1, 4096, 1, true);
 
-    bind_check("dither_colors", "Dither Colors");
-    bind_check("show_colors", "Show Colors");
-    bind_check("adaptive_color_density", "More Dense In Colored Areas")
-    bind_check("hexagon_mode", "Arrange Points As Hexagons");
-    bind_check("allow_purple", "Include Purple In Palette");
-    bind_check("grid_mode", "Be More Grid Like");
+    panel = panel.panel("Canvas Position");
+    panel.slider("scale", "Scale", 0.05, 5.0, 0.01, false, true);
+    panel.slider("panx", "Pan X", -1.5, 1.5, 0.01, false, true);
+    panel.slider("pany", "Pan Y", -1.5, 1.5, 0.01, false, true);
     
-    bind_check("draw_transparent", "Accumulation Mode");
-    bind_slider("accum_alpha", "Accum Alpha", 0.001, 1.0, 0.001, false);
+    panel = gui2.panel("More Options");
+    var panel2 = panel.panel("General");
     
-    //function bind_slider(name, textlabel, min, max, step, is_int)
-    bind_slider("pal_colors", "Number of Colors (Times 9)", 1, 32, 1, true);
+    panel2.check("dither_colors", "Dither Colors");
+    panel2.check("show_colors", "Show Colors");
+    panel2.check("adaptive_color_density", "Denser For Color")
+    panel2.check("hexagon_mode", "Hexagonish");
+    panel2.check("grid_mode", "Be More Grid Like");
     
-    //bind_slider will have loaded store setting from localStorage,
+    panel2 = panel.panel("Palette");
+    panel2.slider("pal_colors", "Number of Colors (Times 9)", 1, 32, 1, true);
+    panel2.check("allow_purple", "Include Purple In Palette");
+    
+    panel2 = panel.panel("Misc")
+    panel2.check("draw_transparent", "Accumulation Mode");
+    panel2.slider("accum_alpha", "Accum Alpha", 0.001, 1.0, 0.001, false, true);
+    panel2.check("correct_for_spacing", "Correct_For_Spacing");
+    panel2.check("low_res_cube", "Low Res Cube");
+    
+    //.slider will have loaded store setting from localStorage,
     //if it exists
     colors.gen_colors();
     
-    bind_slider("scale", "Scale", 0.05, 5.0, 0.01, false);
-    bind_slider("panx", "Pan X", -1.5, 1.5, 0.01, false);
-    bind_slider("pany", "Pan Y", -1.5, 1.5, 0.01, false);
-    
-    bind_check("correct_for_spacing", "Correct For Spacing");
     
     _appstate.init();
     
