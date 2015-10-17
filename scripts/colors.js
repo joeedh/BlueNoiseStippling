@@ -57,7 +57,7 @@ define([
   
   exports.closest_color_fast = function closest_color_fast(clr) {
     if (exports.closest_size == undefined) {
-      gen_closest_map();
+      exports.gen_closest_map();
     }
     
     var size = exports.closest_size;
@@ -84,16 +84,17 @@ define([
     colors.length = 0;
     
     /*
-    
-    //colors.push([0, 0, 0]);
+    colors.push([0, 0, 0]);
     colors.push([1, 0, 0]);
-    colors.push([0, 1, 0]);
-    //colors.push([1, 1, 0]);
-    colors.push([0, 0, 1]);
-    //colors.push([0, 1, 1]);
-    //colors.push([0, 0, 0.5]);
-    //colors.push([0, 0.5, 0.5]);
-    //colors.push([0.5, 0.5, 0]);
+    //colors.push([0.5, 0, 0.25]);
+    colors.push([0, 0.5, 0]);
+    colors.push([1, 1, 0]);
+    //colors.push([0.5, 0.5, 0.0]);
+    
+    //colors.push([1, 0.5, 0.0]);
+    colors.push([0, 0, 1.0]);
+    
+    //colors.push([0, 0.5, 0.0]);
     
     return;
     
@@ -184,7 +185,7 @@ define([
     }
   }
   
-  exports.image_palette = function(maxcolor) {
+  exports.image_palette = function image_palette(maxcolor) {
     exports.gen_colors();
     
     if (maxcolor == undefined)
@@ -198,13 +199,22 @@ define([
     hist.fill(0, 0, hist.length);
     var clr = [0, 0, 0];
     
+    var dx = ~~(cw/DIMEN);
+    var dy = ~~(ch/DIMEN);
+    
+    dx = dx == 0 ? 1 : dx;
+    dy = dy == 0 ? 1 : dy;
+    
+    //XXX
+    dx=dy=4;
+    
     var _i=0;
-    for (var ix=0; ix<cw; ix += 4) {
+    for (var ix=0; ix<cw; ix += dx) {
       if (_i++ % 50 == 0) {
         console.log("doing column...", ix);
       }
       
-      for (var iy=0; iy<ch; iy += 4) {
+      for (var iy=0; iy<ch; iy += dy) {
         var idx = (iy*cw + ix)*4;
         
         var r = idata[idx]/255;
@@ -235,6 +245,20 @@ define([
       arr.push([i, hist[i]]);
     }
     
+    
+    var csize = ~~Math.cbrt(maxcolor)+1;
+    
+    var cube = new Int32Array(csize*csize*csize);
+    cube.fill(-1, 0, cube.length);
+    
+    function cidx(r, g, b) {
+      r = ~~(r*csize);
+      g = ~~(g*csize);
+      b = ~~(b*csize);
+      
+      return r*csize*csize + g*csize + b;
+    }
+    
     function weight(c) {
       var clr = exports.colors[c[0]];
       
@@ -251,15 +275,22 @@ define([
       return weight(b) - weight(a);
     });
     
-    arr = arr.slice(0, maxcolor);
     var newcolors = [];
     
     for (var i=0; i<arr.length; i++) {
-      if (arr[i][1] == 0) {
+      if (newcolors.length >= maxcolor || arr[i][1] == 0) {
         break;
       }
       
+      var clr = exports.colors[arr[i][0]];
+      var idx = cidx(clr[0], clr[1], clr[2]);
+      
+      if (cube[idx] >= 0) {
+        continue;
+      }
+      
       newcolors.push(exports.colors[arr[i][0]]);
+      cube[idx] = arr[i][0];
     }
     
     exports.colors = colors = newcolors;

@@ -45,11 +45,17 @@ define([
       
       var mask = this.mask.data.data;
       var mscale = 4;
-      var clr1 = [0, 0, 0];
+      var clr1 = [0.5, 0.5, 0.5];
+      var filter = this.filter;
+      var points = this.points;
+      var start_r = this.start_r;
+      var fil = filter.get(f);
+      var sqrt3 = Math.sqrt(3.0);
+      var size = this.gridsize;
       
       for (var si=0; si<steps; si++, this.cur++) {
           if (this.cur >= size*size) {
-            console.log("Done.");
+            //console.log("Done.");
             break;
           }
           
@@ -57,11 +63,6 @@ define([
           var y = ~~(this.cur / size);
           
           var gx = x, gy = y;
-          
-          //add some randomness
-          //this now happens during draw
-          //x += (Math.random()-0.5)*RAND_FAC;
-          //y += (Math.random()-0.5)*RAND_FAC;
           
           var ix = ~~(((x*mscale) % cw)+0.5);
           var iy = ~~(((y*mscale) % ch)+0.5);
@@ -71,16 +72,29 @@ define([
           
           x = (x-0.5)*2.0, y = (y-0.5)*2.0;
           
-          var clr = this.sampler(x, y, this.gridsize, 1.0);
+          var clr = this.sampler(x, y, size, 1.0);
+          
+          //var f = (clr[0]*0.4026 + clr[1]*0.4052 + clr[2]*0.2022)*0.8;
+          var f = clr[0]*clr[0] + clr[1]*clr[1] + clr[2]*clr[2];
+          f = f != 0.0 ? Math.sqrt(f) / sqrt3 : 0.0;
           
           if (clr[0] < 0) {
             continue; //sampler requested we discard this sample
+          }
+          
+          var sat = Math.abs(1.0-clr[0]) +  Math.abs(1.0-clr[1]) +  Math.abs(1.0-clr[2]);
+          sat /= 3.0;
+          
+          if (ADAPTIVE_COLOR_DENSITY) {
+            //scale spacing of points by saturation (how much color there is)
+            f *= Math.pow(1.0-sat, 2);
           }
           
           var idx = (iy*cw + ix)*4; 
           var threshold = mask[idx]/255.0;
           
           var ok = 0;
+          var wid = mscale;
           var ditherfac = 0.023*(Math.random()-0.5)//*(0.2 + 0.06*f*f);
           
           //blue noise mask has to be downsampled (this is by design,
@@ -92,7 +106,7 @@ define([
               var ix2 = (ix+i) % cw;
               var iy2 = (iy+j) % ch;
               
-              var idx2 = (iy2*cw + ix2)*4;
+              var idx2 = ~~((iy2*cw + ix2)*4);
               
               if (mask[idx2+3] < 70) {
                 continue;
@@ -107,6 +121,9 @@ define([
             }
           }
           
+          var sat=0;
+          var ci = colors.closest_color_fast(clr);
+          
           if (ok && !GRID_MODE) {
             sumx /= ok;
             sumy /= ok;
@@ -118,11 +135,7 @@ define([
           var igx = ~~((x*0.5+0.5)*size);
           var igy = ~~((y*0.5+0.5)*size);
           
-          var gidx = (igy*size + igx)*3;
-          
-          //var f = (clr[0]*0.4026 + clr[1]*0.4052 + clr[2]*0.2022)*0.8;
-          var f = clr[0]*clr[0] + clr[1]*clr[1] + clr[2]*clr[2];
-          f = f != 0.0 ? Math.sqrt(f) / Math.sqrt(3.0) : 0.0;
+          var gidx = ~~((igy*size + igx)*3);
           
           clr1[0] = clr[0]; clr1[1] = clr[1]; clr1[2] = clr[2];
           
@@ -144,11 +157,6 @@ define([
           var sat = Math.abs(1.0-clr[0]) +  Math.abs(1.0-clr[1]) +  Math.abs(1.0-clr[2]);
           sat /= 3.0;
           
-          if (ADAPTIVE_COLOR_DENSITY) {
-            //scale spacing of points by saturation (how much color there is)
-            f *= Math.pow(1.0-sat, 2);
-          }
-          
           //scale color error by spacing of points
           if (CORRECT_FOR_SPACING) {
             var avg = (clr[0]+clr[1]+clr[2])/3.0;
@@ -163,10 +171,7 @@ define([
             db *= ffac;
           }
           
-          var wid = mscale;
-          
           //apply error diffusion to color
-          var fil = this.filter.get(f);
           
           for (var fi=0; fi<fil.length; fi++) {
             for (var fj=0; fj<fil[fi].length; fj++) {
@@ -198,15 +203,15 @@ define([
             continue;
           }
           
-          this.points.push(x);
-          this.points.push(y);
-          this.points.push(this.start_r*(1.0 + 0.25*(sat)));
-          this.points.push(f);
-          this.points.push(ci);
+          points.push(x);
+          points.push(y);
+          points.push(start_r*(1.0 + 0.25*(sat)));
+          points.push(f);
+          points.push(ci);
       }
       
       if (!skip_points_display) {
-        console.log("points", this.points.length/PTOT);
+        console.log("points", points.length/PTOT);
         console.log("\n");
       }
     },

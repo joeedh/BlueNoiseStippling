@@ -51,6 +51,7 @@ define([
         }
         
         g.fillStyle = "rgba(" + r + "," + g1 + "," + b + ","+alpha+")";
+        
         g.beginPath();
         
         util.seed.push(0);
@@ -88,6 +89,9 @@ define([
           g.moveTo(x, y);
           g.arc(x, y, w*DRAW_RMUL, 0, Math.PI*2);
           
+          //var w2 = w*DRAW_RMUL;
+          //g.rect(x-w2*0.5, y-w2*0.5, w2, w2);
+          
           if (DRAW_TRANSPARENT) {
             g.fill();
           }
@@ -103,6 +107,12 @@ define([
     
     function draw(g) {
       g.save();
+      
+      g.clearRect(0, 0, this.appstate.canvas.width, this.appstate.canvas.height);
+      g.beginPath();
+      g.rect(0, 0, this.appstate.canvas.width, this.appstate.canvas.height);
+      g.fillStyle = "white";
+      g.fill();
       
       this.draw_transform(g);
       this.draw_points(g);

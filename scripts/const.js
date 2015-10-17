@@ -13,6 +13,17 @@ window.PANX = 0.0;
 window.PANY = 0.0;
 window.ACCUM_ALPHA = 0.3;
 
+window.USE_MERSENNE = false;
+
+Math._random = Math.random;
+Math.random = function() {
+  if (USE_MERSENNE) {
+    return _util.random();
+  } else {
+    return Math._random();
+  }
+}
+
 window.LOW_RES_CUBE = false;
 window.GRID_MODE = false;
 window.DRAW_TRANSPARENT = false;
@@ -117,7 +128,7 @@ define([
   
   exports.sharpen_cache = new Array(256);
   
-  exports.get_sharpen_filter = function(fwid) {
+  exports.get_sharpen_filter = function get_sharpen_filter(fwid) {
     if (exports.sharpen_cache[fwid] != undefined) {
       return exports.sharpen_cache[fwid];
     }

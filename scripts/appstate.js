@@ -196,7 +196,9 @@ define([
       var this2 = this;
       
       var sampler_ret = [0, 0, 0, 0];
-      this.bluenoise.sampler = function(x, y, size, rad, no_filter) {
+      var one255 = 1.0/255.0;
+      
+      this.bluenoise.sampler = function sampler(x, y, size, rad, no_filter) {
         x = (x*0.5)+0.5;
         y = (y*0.5)+0.5;
         
@@ -214,6 +216,34 @@ define([
         
         if (NO_IMAGE_FILTER)
           no_filter=1;
+        
+        if (no_filter) {
+          var ix = ~~(x*img.width);
+          var iy = ~~(y*img.height);
+          var ret = sampler_ret;
+          
+          if (ix < 0 || iy < 0 || ix >= img.width || iy >= img.height) {
+            //discard sample if out of image bounds
+            ret[0] = ret[1] = ret[2] = ret[3] = -1;
+            return ret;
+          }
+          
+          var idx = ~~((iy*img.width+ix)*4);
+          var a = data.data[idx+3]*one255;
+          
+          if (a < 0.05) {
+            //discard sample if on transparent pixel
+            ret[0] = ret[1] = ret[2] = ret[3] = -1;
+            return ret;
+          }
+          
+          ret[0] = data.data[idx]*one255;
+          ret[1] = data.data[idx+1]*one255;
+          ret[2] = data.data[idx+2]*one255;
+          ret[3] = data.data[idx+3]*one255;
+          
+          return ret;
+        }
         
         var filterw = img.width/this2.bluenoise.gridsize;
         var filterh = img.height/this2.bluenoise.gridsize;
@@ -297,6 +327,7 @@ define([
           
           if (a > 0.05) {
             sampler_ret[0] = -1;
+            
             return sampler_ret;
           }
           
@@ -323,13 +354,13 @@ define([
         sampler_ret[2] = Math.max(sumb, 0.0);
         sampler_ret[3] = Math.max(suma, 0.0);
         
-        var inten = sampler_ret[0]*0.2126 + sampler_ret[1]*0.7152 + sampler_ret[2]*0.0722;
+        //var inten = sampler_ret[0]*0.2126 + sampler_ret[1]*0.7152 + sampler_ret[2]*0.0722;
         
         //if (inten > 0.85) {
         //  sampler_ret[0] = -1; //discard sample;
         //}
-        var rr = sampler_ret;
-        var inten = 0.2126*rr[0] + 0.7152*rr[1] + 0.0722*rr[2];
+        //var rr = sampler_ret;
+        //var inten = 0.2126*rr[0] + 0.7152*rr[1] + 0.0722*rr[2];
         
         //if (inten > 0.9){
           //sampler_ret[0] = -1;
@@ -449,7 +480,7 @@ define([
     panel.slider("dimen", "Density", 1, 2048, 1, true);
     panel.slider("steps", "Points Per Step", 1, 50000, 1, true);
     panel.slider("draw_rmul", "Point Size", 0.1, 8.0, 0.01, false, true);
-    panel.slider("rand_fac", "Added Random", 0.0, 3.0,0.005, false, true);
+    panel.slider("rand_fac", "Added Random", 0.0, 3.0, 0.005, false, true);
     panel.slider("dither_rand_fac", "Dither Random", 0.0, 3.0,0.005, false);
     panel.open();
     
@@ -518,6 +549,7 @@ define([
     panel2.check("adaptive_color_density", "Denser For Color")
     panel2.check("hexagon_mode", "Hexagonish");
     panel2.check("grid_mode", "Be More Grid Like");
+    panel2.check("use_mersenne", "Psuedo Random");
     
     panel2 = panel.panel("Palette");
     panel2.slider("pal_colors", "Number of Colors (Times 9)", 1, 32, 1, true);
