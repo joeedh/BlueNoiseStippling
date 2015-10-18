@@ -16,6 +16,8 @@ masks is called "progressive dart throwing", and is a very brute force (but,
 with recent clever algorithms, quite fast) approach.
 
 To run, just load bluenoise6.html in a web browser (tested with Chrome and Firefox).
+There is no need to run the web server, unless you wish to play around with the other
+blue noise masks in the examples folder (mask_large_2_smoothed.png is the best of those).
 
 Play around with the parameters a bit.  They tend to vary depending on what you are
 looking for, and the color profile of the image you've loaded.

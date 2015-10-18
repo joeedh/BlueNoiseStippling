@@ -555,6 +555,50 @@ define([
     panel2.slider("pal_colors", "Number of Colors (Times 9)", 1, 32, 1, true);
     panel2.check("allow_purple", "Include Purple In Palette");
     
+    var load_value = 'built-in';
+    
+    panel2 = panel.panel("Blue Noise Mask");
+    panel2.listenum('Mask', {
+      'Built In'                 : 'built-in',
+      'Large 2'                  : 'mask_large_2.png',
+      'Large 2 (smoothed)'       : 'mask_large_2_smoothed.png',
+      'Large 1 (only 16 levels)' : 'mask_large.png',
+      'Small 1 (only 16 levels)' : 'mask.png'
+    }, 'built-in', function(value) {
+      load_value = value;
+      console.log("yay, value", value);
+    });
+    
+    panel2.button('load_mask', 'Load', function() {
+      var value = load_value;
+      
+      if (value == 'built-in') {
+        console.log("Reloading built-in blue noise mask. . .");
+        localStorage.startup_mask_bn4 = blue_mask_file;
+        _appstate.bluenoise.load_mask(blue_mask_file);
+      } else {
+        var promise = util.fetch_file("examples/"+value, true);
+        
+        promise.then(function(data) {
+          //turn into data url
+          console.log("DATA LEN1", data.byteLength);
+          data = new Uint8Array(data);
+          
+          var s = "";
+          for (var i=0; i<data.length; i++) {
+            s += String.fromCharCode(data[i]);
+          }
+          
+          data = btoa(s);
+          console.log(data.slice(0, 100));
+          
+          data = "data:image/png;base64," + data;
+          localStorage.startup_mask_bn4 = data;
+          _appstate.bluenoise.load_mask(data);
+        });
+      }
+    });
+    
     panel2 = panel.panel("Misc")
     panel2.check("draw_transparent", "Accumulation Mode");
     panel2.slider("accum_alpha", "Accum Alpha", 0.001, 1.0, 0.001, false, true);

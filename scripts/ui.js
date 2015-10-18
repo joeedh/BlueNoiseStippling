@@ -77,6 +77,21 @@ define([
       }}, 'cb').name(label);
     },
     
+    function listenum(id, list, defaultval, callback, thisvar) {
+      var ret = {};
+      ret[id] = defaultval;
+      
+      var option = this.dat.add(ret, id, list);
+      
+      option.onChange(function(value) {
+        if (thisvar !== undefined) {
+          callback.call(thisvar, value);
+        } else {
+          callback(value);
+        }
+      });
+    },
+    
     function check(id, name, is_param) {
       var ret = {};
       

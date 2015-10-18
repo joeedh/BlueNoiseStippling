@@ -1,5 +1,12 @@
 var _typesystem = undefined;
 
+/*
+This module implements ES6 classes in ES5 syntax, since
+(aggrevatingly) only Google Chrome supports ES6 classes natively
+at this time (I was going to throw it away when ES6
+was released, but alas, it's implementation has been slow. . .)
+*/
+
 define([
 ], function() {
   'use strict';
@@ -40,31 +47,6 @@ define([
         }
       }
     }
-  }
-
-  var init_prototype = exports.init_prototype = function init_prototype(cls, proto) {
-    for (var k in proto) {
-      cls.prototype[k] = proto[k];
-    }
-    
-    cls.prototype.__prototypeid__ = prototype_idgen++;
-    cls[Symbol.keystr] = function() {
-      return this.prototype.__prototypeid__;
-    }
-    
-    cls.__parent__ = parent;
-    cls.__statics__ = [];
-
-    handle_statics(cls, undefined);
-    
-    return cls.prototype;
-  }
-
-  var inherit = exports.inherit = function inherit(cls, parent, proto) {
-    cls.prototype = Object.create(parent.prototype);
-    init_prototype(cls, proto);
-    
-    return cls.prototype;
   }
 
   var Class = exports.Class = function Class(methods) {

@@ -407,18 +407,23 @@ define([
       console.log(cs[i]);
     }
   }
-
-  var fetch_file = exports.fetch_file = function fetch_file(path) {
+  
+  //return_arraybuffer is optional, false
+  var fetch_file = exports.fetch_file = function fetch_file(path, return_arraybuffer) {
       var url = location.origin + "/" + path
       
       var req = new XMLHttpRequest(
       );
       
+      if (return_arraybuffer) {
+        req.responseType = "arraybuffer";
+      }
+      
       return new Promise(function(accept, reject) {
         req.open("GET", url)
         req.onreadystatechange = function(e) {
           if (req.status == 200 && req.readyState == 4) {
-              accept(req.response);
+            accept(req.response);
           } else if (req.status >= 400) {
             reject(req.status, req.statusText);
           }
