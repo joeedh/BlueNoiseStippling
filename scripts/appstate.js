@@ -577,7 +577,19 @@ define([
         localStorage.startup_mask_bn4 = blue_mask_file;
         _appstate.bluenoise.load_mask(blue_mask_file);
       } else {
-        var promise = util.fetch_file("examples/"+value, true);
+        var path = "examples/"+value;
+        var base = document.location.pathname;
+        
+        while (base.length > 0 && !base.endsWith("/")) {
+          base = base.slice(0, base.length-1);
+        }
+        
+        if (base.length != 0) {
+          base = base.slice(1, base.length);
+        }
+        
+        path = base + path;
+        var promise = util.fetch_file(path, true);
         
         promise.then(function(data) {
           //turn into data url
