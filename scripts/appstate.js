@@ -258,7 +258,7 @@ define([
         //filter = isNaN(filter) ? 3.0 : filter;
         
         var fwid = Math.ceil(filter);
-        fwid = Math.max(fwid, 3.0);
+        fwid = Math.max(fwid, 4.0);
         
         var totsample=fwid*fwid;
         var totsampled = 0;
