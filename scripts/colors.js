@@ -84,15 +84,15 @@ define([
     colors.length = 0;
     
     /*
-    colors.push([0, 0, 0]);
-    colors.push([1, 0, 0]);
+    colors.push([0.2, 0.2, 0.2]);
+    colors.push([0.3, 0, 0]);
     //colors.push([0.5, 0, 0.25]);
     colors.push([0, 0.5, 0]);
-    colors.push([1, 1, 0]);
+    colors.push([0.6, 0.6, 0]);
     //colors.push([0.5, 0.5, 0.0]);
     
     //colors.push([1, 0.5, 0.0]);
-    colors.push([0, 0, 1.0]);
+    colors.push([0, 0, 0.9]);
     
     //colors.push([0, 0.5, 0.0]);
     

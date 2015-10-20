@@ -481,7 +481,8 @@ define([
     panel.slider("steps", "Points Per Step", 1, 50000, 1, true);
     panel.slider("draw_rmul", "Point Size", 0.1, 8.0, 0.01, false, true);
     panel.slider("rand_fac", "Added Random", 0.0, 3.0, 0.005, false, true);
-    panel.slider("dither_rand_fac", "Dither Random", 0.0, 3.0,0.005, false);
+    //panel.slider("dither_rand_fac", "Dither Random", 0.0, 3.0,0.005, false);
+    panel.slider("sharpness", "Sharpness", 0.0, 3.5, 0.001, false);
     panel.open();
     
     panel = gui.panel("Save Tool")

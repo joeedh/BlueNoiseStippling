@@ -12,6 +12,7 @@ window.SCALE = 1.0;
 window.PANX = 0.0;
 window.PANY = 0.0;
 window.ACCUM_ALPHA = 0.3;
+window.SHARPNESS = 0.5;
 
 window.USE_MERSENNE = false;
 
@@ -128,7 +129,14 @@ define([
   
   exports.sharpen_cache = new Array(256);
   
+  var last_sharpness = -1;
+  
   exports.get_sharpen_filter = function get_sharpen_filter(fwid) {
+    if (last_sharpness != SHARPNESS) {
+      last_sharpness = SHARPNESS;
+      exports.sharpen_cache = {};
+    }
+    
     if (exports.sharpen_cache[fwid] != undefined) {
       return exports.sharpen_cache[fwid];
     }
@@ -191,7 +199,9 @@ define([
       
       var fac = 1.3;
       
-      w = bez4(0, -1.18, 1.55*fac, 1.0, w);
+      var s = SHARPNESS;
+      
+      w = bez4(0, -0.75-s*2, (0.95+s*2)*fac, 1.0, w);
       
       ret.push(w);
     }
