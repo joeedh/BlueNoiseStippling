@@ -1,8 +1,8 @@
 var __appstate = undefined;
 
 define([
-  "util", "const", "bluenoise", "draw", "colors", "ui"
-], function(util, cconst, bluenoise, draw, colors, ui) {
+  "util", "const", "bluenoise", "draw", "colors", "ui", "spectrum"
+], function(util, cconst, bluenoise, draw, colors, ui, spectrum) {
   "use strict";
   
   var exports = __appstate = {};
@@ -107,6 +107,11 @@ define([
     function on_keydown(e) {
       console.log(e.keyCode);
       switch (e.keyCode) {
+        case 75: //kkey
+          console.log("spectrum");
+          this.calc_spectrum();
+          redraw_all();
+          break;
         case 82: //rkey
           this.init()
           this.reset()
@@ -564,7 +569,8 @@ define([
       'Large 2'                  : 'mask_large_2.png',
       'Large 2 (smoothed)'       : 'mask_large_2_smoothed.png',
       'Large 1 (only 16 levels)' : 'mask_large.png',
-      'Small 1 (only 16 levels)' : 'mask.png'
+      'Small 1 (only 16 levels)' : 'mask.png',
+      'Weighted Sample Removal'  : 'weighted_sample_removal_mask_1.png',
     }, 'built-in', function(value) {
       load_value = value;
       console.log("yay, value", value);
