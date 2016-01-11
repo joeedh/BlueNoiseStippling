@@ -2,19 +2,35 @@
 //core data 'structures' are actually embedded in typed arrays. . . ger
 
 //points
-var PX=0, PY=1, PRADIUS=2, PINTEN=3, PID=4, PTOT=5;
+var PX=0, PY=1, PRADIUS=2, PINTEN=3, PID=4, PLVL=5;
+var POX=6, POY=7, PTOT=8;
+
+var PRADIUS2 = PINTEN;
 
 window.DIMEN = 350;
 
+window.SCALE_POINTS = false;
+
 window.DRAW_RMUL = 2.1;
+window.BLACK_BG = false;
 
 window.SCALE = 1.0;
 window.PANX = 0.0;
 window.PANY = 0.0;
 window.ACCUM_ALPHA = 0.3;
+
 window.SHARPNESS = 0.5;
+window.SHARPEN_LUMINENCE = true;
+window.SHARPEN = true;
+
+window.USE_LAB = true;
+window.RASTER_IMAGE = false;
 
 window.USE_MERSENNE = false;
+window.TRI_MODE = false;
+
+//used to allocate voronoi diagram
+window.MAX_VCELL_SIZE = 32;
 
 Math._random = Math.random;
 Math.random = function() {
@@ -25,12 +41,19 @@ Math.random = function() {
   }
 }
 
+var RASTER_MODES = {
+  DIFFUSION : 0,
+  PATTERN   : 1,
+  CMYK      : 2
+}
+window.RASTER_MODE = RASTER_MODES.CMYK;
+
 window.LOW_RES_CUBE = false;
 window.GRID_MODE = false;
 window.DRAW_TRANSPARENT = false;
 window.STEPS = 5000;
 window.RAND_FAC = 0.0;
-window.DITHER_RAND_FAC = 0.05;
+window.DITHER_RAND_FAC = 0.0;
 
 window.ALLOW_PURPLE = true;
 window.CORRECT_FOR_SPACING = false;
@@ -57,6 +80,80 @@ define([
   
   var exports = _const = {};
   
+  var _spotfuncs = exports._spotfuncs = {};
+
+  var bez4 = exports.bez4 = function bez4(a, b, c, d, t) {
+    var r1 = a + (b - a)*t;
+    var r2 = b + (c - b)*t;
+    var r3 = c + (d - c)*t;
+    
+    var r4 = r1 + (r2 - r1)*t;
+    var r5 = r2 + (r3 - r2)*t;
+    
+    return r4 + (r5 - r4)*t;
+  }
+  
+  var get_spotfunc = exports.get_spotfunc = function get_spotfunc(n, inten, noreport) {
+    var r = n, i=n;
+    
+    if (_spotfuncs.length <= n) {
+      _spotfuncs.length = n+1;
+    }
+    
+    var key = n+","+inten.toFixed(2);
+    
+    if (_spotfuncs[key] != undefined) {
+      return _spotfuncs[key];
+    }
+    
+    if (!noreport)
+      console.trace("generate search a off of radius", n, "...");
+    
+    var lst = [];
+    for (var x=-i; x<=i; x++) {
+      for (var y=-i; y<=i; y++) {
+        var x2 = x < 0 ? x+0 : x;
+        var y2 = y < 0 ? y+0 : y;
+        
+        var dis = x2*x2 + y2*y2;
+        dis = dis != 0.0 ? Math.sqrt(dis) : 0.0;
+        
+        //*
+        var sqrdis = Math.max(Math.abs(x2), Math.abs(y2))*Math.sqrt(2.0);
+        
+        //var f = 1.0-Math.sqrt(0.0001+inten);
+        
+        //f = 1.0-Math.abs(f-0.5)*2.0;
+        //f *= f;
+        
+        var f = inten;
+        f = f < 0.4 ? 1 : 0;
+        
+        if (n > 1) {
+          dis = dis*(1.0-f) + sqrdis*f;
+        }
+        
+        //dis = sqrdis;
+        //*/
+        
+        if (dis > r+0.0001) {
+          continue;
+        }
+        
+        lst.push([x, y]);
+      }
+    }
+    
+    //sort by distance
+    lst.sort(function(a, b) {
+      return a[0]*a[0] + a[1]*a[1] - b[0]*b[0] - b[1]*b[1];
+    });
+    
+    _spotfuncs[key] = lst;
+    
+    return lst;
+  }
+  
   var get_searchoff = exports.get_searchoff = function get_searchoff(n, noreport) {
     var r = n, i=n;
     
@@ -72,8 +169,8 @@ define([
       console.trace("generate search a off of radius", n, "...");
     
     var lst = [];
-    for (var x=-i; x<i; x++) {
-      for (var y=-i; y<i; y++) {
+    for (var x=-i; x<=i; x++) {
+      for (var y=-i; y<=i; y++) {
         var x2 = x < 0 ? x+1 : x;
         var y2 = y < 0 ? y+1 : y;
         
@@ -130,10 +227,39 @@ define([
   exports.sharpen_cache = new Array(256);
   
   var last_sharpness = -1;
+  exports.basic_cache = new Array(256);
   
-  exports.get_sharpen_filter = function get_sharpen_filter(fwid) {
-    if (last_sharpness != SHARPNESS) {
-      last_sharpness = SHARPNESS;
+  exports.get_sharpen_filter = function get_sharpen_filter(fwid, sharpness) {
+    if (!window.SHARPEN) {
+      if (exports.basic_cache[fwid] != undefined) {
+        return exports.basic_cache[fwid];
+      }
+      
+      var ret = [];
+      for (var i=0; i<fwid*fwid; i++) {
+        var fwid2 = fwid-1;
+        
+        var xoff = ((i) % fwid)/fwid2;
+        var yoff = (~~((i)/fwid))/fwid2;
+        
+        xoff -= 0.5;
+        yoff -= 0.5;
+
+        var w = xoff*xoff + yoff*yoff;
+        
+        w = w == 0.0 ? 0.0 : Math.sqrt(w);
+        w = 1.0 - w/Math.sqrt(2.0);
+        w = Math.pow(w, 100.0);
+        
+        ret.push(w);
+      }
+      
+      exports.basic_cache[fwid] = ret;
+      return ret;
+    }
+    
+    if (last_sharpness != sharpness) {
+      last_sharpness = sharpness;
       exports.sharpen_cache = {};
     }
     
@@ -199,7 +325,7 @@ define([
       
       var fac = 1.3;
       
-      var s = SHARPNESS;
+      var s = sharpness;
       
       w = bez4(0, -0.75-s*2, (0.95+s*2)*fac, 1.0, w);
       

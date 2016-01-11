@@ -37,6 +37,7 @@ define([
       this.bluenoise = new bluenoise.BlueNoise();
       this.drawer = new draw.Drawer(this);
       this.image = undefined;
+      this.outimage = undefined;
       
       this.canvas = canvas;
       this.g = g;
@@ -84,7 +85,9 @@ define([
         var this2 = this;
         
         this.image.onload = function() {
-          this2.on_image_read(this2.image);
+          this2.on_image_read(this2.image, function() {
+            this2.source_image_read(this2.image);
+          });
         }
       }
       
@@ -96,8 +99,25 @@ define([
     },
     
     function reset() {
-      this.bluenoise.reset();
-      this.drawer.reset();
+      if (RASTER_IMAGE)  {
+        var size = ~~(SCALE*Math.min(canvas.width, canvas.height));
+        size = DIMEN;
+        
+        var size2 = size;
+        
+        this.outimage = new ImageData(size2, size2);
+        var img = this.outimage;
+        
+        var iview = new Int32Array(img.data.buffer);
+        
+        img.data[0] = img.data[1] = img.data[2] = 255;
+        img.data[3] = 255;
+        
+        iview.fill(iview[0], 0, iview.length);
+      }
+      
+      this.bluenoise.reset(RASTER_IMAGE ? this.outimage : undefined);
+      this.drawer.reset(RASTER_IMAGE ? this.outimage : undefined);
     },
     
     function draw() {
@@ -108,8 +128,10 @@ define([
       console.log(e.keyCode);
       switch (e.keyCode) {
         case 75: //kkey
-          console.log("spectrum");
-          this.calc_spectrum();
+          console.log("relax");
+          this.bluenoise.relax();
+          //console.log("spectrum");
+          //this.calc_spectrum();
           redraw_all();
           break;
         case 82: //rkey
@@ -146,13 +168,31 @@ define([
         
         window._image_url = e.target.result;
         
-        this2.on_image_read(img, 'image');
+        this2.on_image_read(img, function() {
+          this2.source_image_read(img);
+        });
       };
       
       reader.readAsDataURL(files[0]);
     },
 
-    function on_image_read(img) {
+    function  on_mask_filechange(e, files) {
+      console.log("got file", e, files)
+      
+      if (files.length == 0) return;
+      
+      var reader = new FileReader();
+      var this2 = this;
+      
+      reader.onload = function(e) {
+        localStorage.startup_mask_bn4 = e.target.result;
+        _appstate.bluenoise.load_mask(e.target.result);
+      };
+      
+      reader.readAsDataURL(files[0]);
+    },
+    
+    function on_image_read(img, cb, thisvar) {
       console.log("got image")
       var this2 = this;
       
@@ -160,15 +200,14 @@ define([
         var timer = window.setInterval(function() {
           if (img.width != 0) {
             window.clearInterval(timer);
-            this2.on_image_read(img);
+            this2.on_image_read(img, cb, thisvar);
+            
             console.log("delay load imaged");
           }
         }, 500);
         
         return;
       }
-      
-      this.bluenoise.reset();
 
       //extract image data
       var canvas = document.createElement("canvas");
@@ -177,14 +216,26 @@ define([
       var g = canvas.getContext('2d')
       g.drawImage(img, 0, 0);
       
-      this.image = img;
       if (img.width == 0) {
         console.log("eek", img.width, img.height);
         return;
       }
       
       var data = g.getImageData(0, 0, img.width, img.height);
-      this.image.data = data;
+      img.data = data;
+      
+      if (cb == undefined)
+        return;
+      
+      if (thisvar == undefined)
+        cb(img);
+      else
+        cb.call(thisvar, img);
+    },
+    
+    function source_image_read(img) {
+      this.bluenoise.reset();
+      this.image = img;
       
       try {
         localStorage.startup_image_bn4 = img.src;
@@ -193,6 +244,8 @@ define([
       }
       
       console.log("make image sampler");
+      
+      var data = img.data;
       
       var min = Math.min, max = Math.max, sqrt = Math.sqrt;
       var fract = Math.fract, tent = Math.tend, pow = Math.pow;
@@ -203,9 +256,27 @@ define([
       var sampler_ret = [0, 0, 0, 0];
       var one255 = 1.0/255.0;
       
+      var lab_to_rgb = colors.lab_to_rgb;
+      var rgb_to_lab = colors.rgb_to_lab;
+      
       this.bluenoise.sampler = function sampler(x, y, size, rad, no_filter) {
         x = (x*0.5)+0.5;
         y = (y*0.5)+0.5;
+        
+        /*
+        sampler_ret[0] = sampler_ret[1] = sampler_ret[2] = 0;
+        sampler_ret[3] = 1;
+        
+        //return colors.lab_to_rgb(100, 0, -80);
+        sampler_ret[0] = 0;
+        sampler_ret[1] = 2;
+        sampler_ret[2] = 0.8;
+        return sampler_ret;//*/
+        
+        //var use_lab = x > 0.5;
+        //use_lab = use_lab && (SHARPEN_LUMINENCE||USE_LAB);
+        
+        var use_lab = (SHARPEN_LUMINENCE||USE_LAB);
         
         x = min(max(x, 0.0), 0.99999999);
         y = min(max(y, 0.0), 0.99999999);
@@ -265,23 +336,31 @@ define([
         var fwid = Math.ceil(filter);
         fwid = Math.max(fwid, 4.0);
         
-        var totsample=fwid*fwid;
-        var totsampled = 0;
-        
         if (no_filter) {
           totsample = 3;
           fwid = 1;
           filter = 1.0;
+        } else if (!SHARPEN) {
+          fwid = 1;
+          filter = 1;
+          totsample = 1;
         }
         
+        var totsample=fwid*fwid;
+        var totsampled = 0;
+        
         var sumr=0, sumg=0, sumb=0, suma=0;
+        var totr=0, totg=0, totb=0, tota=0;
         
         window._totsample = totsample;
         
-        var weights = cconst.get_sharpen_filter(fwid);
+        var weights = cconst.get_sharpen_filter(fwid, SHARPNESS), weights2;
+        if (use_lab) {
+          weights2 = cconst.get_sharpen_filter(fwid, 0.45);
+        }
         
         for (var i=0; i<totsample; i++) {
-          var fwid2 = fwid-1;
+          var fwid2 = fwid == 1 ? 1 : fwid-1;
           var xoff = ((i) % fwid)/fwid2;
           var yoff = (~~((i)/fwid))/fwid2;
           
@@ -315,10 +394,17 @@ define([
           var b = (data.data[idx+2]/255);
           var a = 1.0-(data.data[idx+3]/255);
           
+          //un-srgb
+          
+          if (use_lab) {
+            var lab = rgb_to_lab(r, g, b);
+            r = lab[0], g = lab[1], b = lab[2];
+          }
+          
           //two options: either blend color with white using alpha,
           //or multiply with alpha;
           
-          //blend with white
+          //blend with white?
           /*
           r += (1.0 - r)*a;
           g += (1.0 - g)*a;
@@ -326,9 +412,13 @@ define([
           //*/
           
           //mul with alpha.  we're assuming they're not already premul
-          r *= 1.0-a;
-          g *= 1.0-a;
-          b *= 1.0-a;
+          if (use_lab) {
+            r *= 1.0 - a;
+          } else {
+            r *= 1.0-a;
+            g *= 1.0-a;
+            b *= 1.0-a;
+          }
           
           if (a > 0.05) {
             sampler_ret[0] = -1;
@@ -336,28 +426,48 @@ define([
             return sampler_ret;
           }
           
+          var w2 = (use_lab && SHARPEN_LUMINENCE) ? weights2[i] : w;
+          //w=w2=1;
+          
+          if (totsample == 1) {
+            w = w2 = 1.0;
+          }
+          
           sumr += r*w;
-          sumg += g*w;
-          sumb += b*w;
+          sumg += g*w2;
+          sumb += b*w2;
           suma += a*w;
           
-          tot += w;
+          totr += w;
+          totg += w2;
+          totb += w2;
+          tota += w;
+          
+          //break;
         }
         
-        if (!totsampled || tot == 0.0) {
+        if (!totsampled) {
           sampler_ret[0] = -1;
           return sampler_ret; //discard
         }
         
-        sumr /= tot;
-        sumg /= tot;
-        sumb /= tot;
-        suma /= tot;
+        sumr /= totr != 0.0 ? totr : 1.0;
+        sumg /= totg != 0.0 ? totg : 1.0;
+        sumb /= totb != 0.0 ? totb : 1.0;
+        suma /= tota != 0.0 ? tota : 1.0;
         
-        sampler_ret[0] = Math.max(sumr, 0.0);
-        sampler_ret[1] = Math.max(sumg, 0.0);
-        sampler_ret[2] = Math.max(sumb, 0.0);
-        sampler_ret[3] = Math.max(suma, 0.0);
+        if (use_lab) {
+          var rgb = lab_to_rgb(sumr, sumg, sumb);
+          
+          sumr = rgb[0];
+          sumg = rgb[1];
+          sumb = rgb[2];
+        }
+        
+        sampler_ret[0] = Math.min(Math.max(sumr, 0.0), 1.0);
+        sampler_ret[1] = Math.min(Math.max(sumg, 0.0), 1.0);
+        sampler_ret[2] = Math.min(Math.max(sumb, 0.0), 1.0);
+        sampler_ret[3] = Math.min(Math.max(suma, 0.0), 1.0);
         
         //var inten = sampler_ret[0]*0.2126 + sampler_ret[1]*0.7152 + sampler_ret[2]*0.0722;
         
@@ -467,6 +577,11 @@ define([
       input.click();
     });
     
+    gui.button('load_mask', "Load Mask", function() {
+      var input = document.getElementById("input2");
+      input.click();
+    });
+    
     gui.button("reset", "Reset", function() {
       colors.gen_colors();
       _appstate.init();
@@ -486,8 +601,15 @@ define([
     panel.slider("steps", "Points Per Step", 1, 50000, 1, true);
     panel.slider("draw_rmul", "Point Size", 0.1, 8.0, 0.01, false, true);
     panel.slider("rand_fac", "Added Random", 0.0, 3.0, 0.005, false, true);
+    
+    panel.check('scale_points', 'Radius Scale');
+    panel.check('tri_mode', "Triangle Mode");
+    
     //panel.slider("dither_rand_fac", "Dither Random", 0.0, 3.0,0.005, false);
+    panel.check("sharpen", "Sharpen");
     panel.slider("sharpness", "Sharpness", 0.0, 3.5, 0.001, false);
+    panel.check('sharpen_luminence', 'Luminence Only');
+    panel.check('use_lab', 'Use Lab Space');
     panel.open();
     
     panel = gui.panel("Save Tool")
@@ -501,6 +623,10 @@ define([
       
       var asp = _appstate.image.width / _appstate.image.height;
       var w, h;
+      
+      if (RASTER_IMAGE) {
+        size = _appstate.outimage.width;
+      }
       
       if (asp > 1.0) {
         w = size;
@@ -519,7 +645,7 @@ define([
       //make sure we have white background, not zero alpha
       g.beginPath();
       g.rect(0, 0, w, h);
-      g.fillStyle = "white";
+      g.fillStyle = BLACK_BG ? "black " : "white";
       g.fill();
       
       var scale = 0.5*Math.max(w, h); //canvas.width, canvas.height);
@@ -531,7 +657,13 @@ define([
         g.translate(1.0, 1.0);
       }
       
-      _appstate.drawer.draw_points(g);
+      if (RASTER_IMAGE) {
+        g.putImageData(_appstate.outimage, 0, 0);
+      } else if (TRI_MODE) {
+        _appstate.drawer.tri_mode_draw(g);
+      } else {
+        _appstate.drawer.draw_points(g);
+      }
       
       console.log("finished rendering image")
       window.SCALE = oldscale;
@@ -555,7 +687,24 @@ define([
     panel2.check("adaptive_color_density", "Denser For Color")
     panel2.check("hexagon_mode", "Hexagonish");
     panel2.check("grid_mode", "Be More Grid Like");
+    
+    var panel3 = panel2.panel("Simple Raster");
+    panel3.check("raster_image", "Enable");
+    
+    var val = ui.load_setting('raster_mode');
+    val = val == undefined ? RASTER_MODE : parseInt(val);
+    window.RASTER_MODE = val;
+    
+    panel3.listenum("Mode", RASTER_MODES, val, function(value) {
+      window.RASTER_MODE = parseInt(value);
+      console.log("setting raster_mode to", RASTER_MODE, typeof RASTER_MODE)
+      ui.save_setting("raster_mode", RASTER_MODE);
+    });
+    
+    panel2.check("small_mask", "Small Mask Mode");
+    
     panel2.check("use_mersenne", "Psuedo Random");
+    panel2.check("black_bg", "Black BG");
     
     panel2 = panel.panel("Palette");
     panel2.slider("pal_colors", "Number of Colors (Times 9)", 1, 32, 1, true);
@@ -635,6 +784,12 @@ define([
       console.log("file!", e, this.files);
       
       _appstate.on_filechange(e, this.files);
+    });
+    
+    document.getElementById("input2").addEventListener("change", function(e) {
+      console.log("file!", e, this.files);
+      
+      _appstate.on_mask_filechange(e, this.files);
     });
   }
   

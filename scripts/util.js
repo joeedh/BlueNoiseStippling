@@ -501,6 +501,10 @@ define([
           return _int32(y);
       },
       
+      function random() {
+        return this.extract_number() / (1<<30);
+      },
+      
       function twist() {
           for (var i=0; i<624; i++) {
               // Get the most significant bit and add it to the less significant

@@ -13,7 +13,7 @@ define([
   var exports = _ui = {};
   var Class = util.Class;
   
-  function save_setting(key, val) {
+  var save_setting = exports.save_setting = function save_setting(key, val) {
     var settings = localStorage.startup_file_bn6;
     
     if (settings == undefined) {
@@ -31,7 +31,7 @@ define([
     localStorage.startup_file_bn6 = JSON.stringify(settings);
   }
   
-  function load_setting(key) {
+  var load_setting = exports.load_setting = function load_setting(key) {
     var settings = localStorage.startup_file_bn6;
     
     if (settings == undefined) {
