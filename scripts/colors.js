@@ -905,9 +905,9 @@ define([
   
   exports.closest_color = function closest_color(c1, nextout, ditherfac, not_diffusing) {
     var mindis = undefined;
-    var mindis2 = undefined;
+    var mindis2 = undefined, mindis3=undefined, mindis4=undefined, mindis5=undefined;
     var ret = undefined;
-    var ret2 = undefined;
+    var ret2 = undefined,ret3=undefined,ret4=undefined,ret5=undefined;
     
     ditherfac = ditherfac == undefined ? 0.0 : ditherfac;
     var dfac = ditherfac;
@@ -918,20 +918,41 @@ define([
       var c2 = colors[i];
       
       var dis = not_diffusing ? colordis_not_diffusing(c1, c2) : colordis(c1, c2);
+      
+      /*
+      let dx = c1[0]-c2[0], dy = c1[1]-c2[1], dz = c1[2]-c2[2];
+      
+      dis = dx*dx + dy*dy + dz*dz;
+      dis = dis != 0.0 ? Math.sqrt(dis) / Math.sqrt(3) : 0.0;
+      //*/
+      
       //dis += (Math.random()-0.5)*2.0*ditherfac*0.15;
       //dis += dfac;
       //dfac += ditherfac*(0.1/colors.length);
       //+dfac
       
-      if (mindis2 == undefined || (dis < mindis2+dfac && dis > mindis)) {
-        mindis2 = dis;
-        ret2 = i;
-      }
-      
-      if (mindis == undefined || dis < mindis+dfac) {
+      if (mindis == undefined || dis+dfac < mindis) {
+        mindis5 = mindis4;
+        ret5 = ret4;
+        
+        mindis4 = mindis3;
+        ret4 = ret3;
+        
+        mindis3 = mindis2;
+        ret3 = ret2;
+        
+        mindis2 = mindis;
+        ret2 = ret;
+        
         mindis = dis;
         ret = i;
       }
+      /*
+      if (mindis2 == undefined || (dis+dfac < mindis2 && dis > mindis)) {
+        mindis2 = dis;
+        ret2 = i;
+      }
+      //*/
     }
     
     /*
@@ -954,7 +975,11 @@ define([
     if (ret2 == undefined) ret2 = ret;
     
     if (nextout) {
-      nextout[0] = ret2;
+      nextout[0] = ret;
+      nextout[1] = ret2;
+      nextout[2] = ret3;
+      nextout[3] = ret4;
+      nextout[4] = ret5;
     }
     
     return minret;

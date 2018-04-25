@@ -595,6 +595,27 @@ define([
       redraw_all();
     });
     
+    gui.button("relax", "Relax", () => {
+      _appstate.bluenoise.relax();
+      redraw_all();
+    });
+    
+    gui.button("relax_loop", "Toggle Relax Loop", () => {
+      if (_appstate.relaxtimer !== undefined) {
+        console.log("stopping timer");
+        
+        window.clearInterval(_appstate.relaxtimer);
+        _appstate.relaxtimer = undefined;
+        
+        return;
+      }
+      
+      _appstate.relaxtimer = window.setInterval(() => {
+        _appstate.bluenoise.relax();
+        redraw_all();
+      }, 100);
+    });
+
     var panel = gui.panel("Settings");
     
     panel.slider("dimen", "Density", 1, 2048, 1, true);
@@ -602,6 +623,9 @@ define([
     panel.slider("draw_rmul", "Point Size", 0.1, 8.0, 0.01, false, true);
     panel.slider("rand_fac", "Added Random", 0.0, 3.0, 0.005, false, true);
     
+    panel.slider("relax_speed", "Relax Speed", 0.001, 8.0, 0.001, true);
+
+    panel.check("show_kdtree", "Show kdtree");
     panel.check('scale_points', 'Radius Scale');
     panel.check('tri_mode', "Triangle Mode");
     
@@ -701,7 +725,9 @@ define([
       ui.save_setting("raster_mode", RASTER_MODE);
     });
     
+    panel2.check("make_noise", "Make Noise (to test relax)");
     panel2.check("small_mask", "Small Mask Mode");
+    panel2.check("xlarge_mask", "Extra Large Mask Mode");
     
     panel2.check("use_mersenne", "Psuedo Random");
     panel2.check("black_bg", "Black BG");

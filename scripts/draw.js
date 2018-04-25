@@ -342,6 +342,12 @@ define([
         this.draw_points(g);
       }
       
+      if (SHOW_KDTREE) {
+        g.lineWidth = 0.001;
+        _appstate.bluenoise.calc_kdtree();
+        _appstate.bluenoise.kdtree2.draw(g);
+      }
+      
       g.restore();
     }
   ]);

@@ -2,14 +2,20 @@
 //core data 'structures' are actually embedded in typed arrays. . . ger
 
 //points
+
+//pox/poy are original positions at time of creation
+//poldx/poldy are used by relax() to calculate velocity
 var PX=0, PY=1, PRADIUS=2, PINTEN=3, PID=4, PLVL=5;
-var POX=6, POY=7, PTOT=8;
+var POX=6, POY=7, PDX=8, PDY=9, POLDX=10, POLDY=11, PTOT=12;
 
 var PRADIUS2 = PINTEN;
 
 window.DIMEN = 350;
 
+window.XLARGE_MASK = false;
+window.SMALL_MASK = false;
 window.SCALE_POINTS = false;
+window.SHOW_KDTREE = false;
 
 window.DRAW_RMUL = 2.1;
 window.BLACK_BG = false;
@@ -18,6 +24,8 @@ window.SCALE = 1.0;
 window.PANX = 0.0;
 window.PANY = 0.0;
 window.ACCUM_ALPHA = 0.3;
+window.MAKE_NOISE = false;
+window.RELAX_SPEED = 1.0;
 
 window.SHARPNESS = 0.5;
 window.SHARPEN_LUMINENCE = true;
