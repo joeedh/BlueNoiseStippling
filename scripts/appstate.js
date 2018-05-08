@@ -152,6 +152,66 @@ define([
       }
     },
     
+    function renderImage() {
+      var size = RENDERED_IMAGE_SIZE;
+      var oldscale = window.SCALE;
+      
+      window.SCALE = 1.0;
+      
+      console.log("rendering image. . .");
+      
+      var asp = _appstate.image.width / _appstate.image.height;
+      var w, h;
+      
+      if (RASTER_IMAGE) {
+        size = _appstate.outimage.width;
+      }
+      
+      if (asp > 1.0) {
+        w = size;
+        h = size/asp;
+      } else {
+        w = size*asp;
+        h = size;
+      }
+      
+      var canvas = document.createElement("canvas");
+      var g = canvas.getContext("2d");
+      
+      canvas.width = w;
+      canvas.height = h;
+      
+      //make sure we have white background, not zero alpha
+      g.beginPath();
+      g.rect(0, 0, w, h);
+      g.fillStyle = BLACK_BG ? "black " : "white";
+      g.fill();
+      
+      var scale = 0.5*Math.max(w, h); //canvas.width, canvas.height);
+      
+      g.scale(scale, scale);
+      if (asp > 1.0) {
+        g.translate(1.0, 1.0);
+      } else {
+        g.translate(1.0, 1.0);
+      }
+      
+      if (RASTER_IMAGE) {
+        g.putImageData(_appstate.outimage, 0, 0);
+      } else if (TRI_MODE) {
+        _appstate.drawer.tri_mode_draw(g);
+      } else {
+        _appstate.drawer.draw_points(g);
+      }
+      
+      console.log("finished rendering image")
+      window.SCALE = oldscale;
+      
+      return new Promise((accept, reject) => {
+        accept(canvas);
+      });
+    },
+    
     function store_bluenoise_mask() {
       localStorage.startup_mask_bn4 = _image_url;
     },
@@ -637,63 +697,14 @@ define([
     panel.open();
     
     panel = gui.panel("Save Tool")
-    panel.button("save_img", "Save Image", function() {
-      var size = RENDERED_IMAGE_SIZE;
-      var oldscale = window.SCALE;
-      
-      window.SCALE = 1.0;
-      
-      console.log("rendering image. . .");
-      
-      var asp = _appstate.image.width / _appstate.image.height;
-      var w, h;
-      
-      if (RASTER_IMAGE) {
-        size = _appstate.outimage.width;
-      }
-      
-      if (asp > 1.0) {
-        w = size;
-        h = size/asp;
-      } else {
-        w = size*asp;
-        h = size;
-      }
-      
-      var canvas = document.createElement("canvas");
-      var g = canvas.getContext("2d");
-      
-      canvas.width = w;
-      canvas.height = h;
-      
-      //make sure we have white background, not zero alpha
-      g.beginPath();
-      g.rect(0, 0, w, h);
-      g.fillStyle = BLACK_BG ? "black " : "white";
-      g.fill();
-      
-      var scale = 0.5*Math.max(w, h); //canvas.width, canvas.height);
-      
-      g.scale(scale, scale);
-      if (asp > 1.0) {
-        g.translate(1.0, 1.0);
-      } else {
-        g.translate(1.0, 1.0);
-      }
-      
-      if (RASTER_IMAGE) {
-        g.putImageData(_appstate.outimage, 0, 0);
-      } else if (TRI_MODE) {
-        _appstate.drawer.tri_mode_draw(g);
-      } else {
-        _appstate.drawer.draw_points(g);
-      }
-      
-      console.log("finished rendering image")
-      window.SCALE = oldscale;
-
-      var url = canvas.toDataURL();
-      window.open(url);
+    panel.button("save_img", "Save Image", () => {
+      _appstate.renderImage().then((canvas) => {
+        canvas.toBlob((blob) => {
+          let url = URL.createObjectURL(blob);
+          
+          window.open(url);
+        });
+      });
     });
     
     panel.slider("rendered_image_size", "Rendered Image Size", 1, 4096, 1, true);
