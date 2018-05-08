@@ -12,6 +12,7 @@ var PRADIUS2 = PINTEN;
 
 window.DIMEN = 350;
 
+window.SPECIAL_OFFSETS = false; //use encoded lower-level offsets, multiplied by intensity
 window.XLARGE_MASK = false;
 window.SMALL_MASK = false;
 window.SCALE_POINTS = false;
@@ -63,6 +64,8 @@ window.STEPS = 5000;
 window.RAND_FAC = 0.0;
 window.DITHER_RAND_FAC = 0.0;
 
+window.BG_PALETTE = false;
+window.SIMPLE_PALETTE = false;
 window.ALLOW_PURPLE = true;
 window.CORRECT_FOR_SPACING = false;
 

@@ -10,6 +10,102 @@ define([
 
   //very crappy palette generator (it excludes purple, purple is evil!)
   
+  let rgb_to_hsv_rets = new util.cachering(() => [0, 0, 0], 64);
+  
+  let rgb_to_hsv = exports.rgb_to_hsv = function rgb_to_hsv (r,g,b) {
+    var computedH = 0;
+    var computedS = 0;
+    var computedV = 0;
+
+    if ( r==null || g==null || b==null ||
+       isNaN(r) || isNaN(g)|| isNaN(b) ) {
+     throw new Error('Please enter numeric RGB values!');
+     return;
+    }
+    /*
+    if (r<0 || g<0 || b<0 || r>1.0 || g>1.0 || b>1.0) {
+     throw new Error('RGB values must be in the range 0 to 1.0');
+     return;
+    }//*/
+
+    var minRGB = Math.min(r,Math.min(g,b));
+    var maxRGB = Math.max(r,Math.max(g,b));
+
+    // Black-gray-white
+    if (minRGB==maxRGB) {
+      computedV = minRGB;
+      
+      let ret = rgb_to_hsv_rets.next();
+      ret[0] = 0, ret[1] = 0, ret[2] = computedV;
+      return ret;
+    }
+
+    // Colors other than black-gray-white:
+    var d = (r==minRGB) ? g-b : ((b==minRGB) ? r-g : b-r);
+    var h = (r==minRGB) ? 3 : ((b==minRGB) ? 1 : 5);
+    
+    computedH = (60*(h - d/(maxRGB - minRGB))) / 360.0;
+    computedS = (maxRGB - minRGB)/maxRGB;
+    computedV = maxRGB;
+    
+    let ret = rgb_to_hsv_rets.next();
+    ret[0] = computedH, ret[1] = computedS, ret[2] = computedV;
+    return ret;
+  }
+
+  let hsv_to_rgb_rets = new util.cachering(() => [0, 0, 0], 64);
+  
+  let hsv_to_rgb = exports.hsv_to_rgb = function hsv_to_rgb(h, s, v) {
+    let c=0, m=0, x=0;
+    let ret = hsv_to_rgb_rets.next();
+    
+    ret[0] = ret[1] = ret[2] = 0.0;
+    h *= 360.0;
+    
+    c = v * s;
+    x = c * (1.0 - Math.abs(((h / 60.0) % 2) - 1.0));
+    m = v - c;
+    let color;
+    
+    function RgbF_Create(r, g, b) {
+      ret[0] = r;
+      ret[1] = g;
+      ret[2] = b;
+      
+      return ret;
+    }
+    
+    if (h >= 0.0 && h < 60.0)
+    {
+        color = RgbF_Create(c + m, x + m, m);
+    }
+    else if (h >= 60.0 && h < 120.0)
+    {
+        color = RgbF_Create(x + m, c + m, m);
+    }
+    else if (h >= 120.0 && h < 180.0)
+    {
+        color = RgbF_Create(m, c + m, x + m);
+    }
+    else if (h >= 180.0 && h < 240.0)
+    {
+        color = RgbF_Create(m, x + m, c + m);
+    }
+    else if (h >= 240.0 && h < 300.0)
+    {
+        color = RgbF_Create(x + m, m, c + m);
+    }
+    else if (h >= 300.0 && h < 360.0)
+    {
+        color = RgbF_Create(c + m, m, x + m);
+    }
+    else
+    {
+        color = RgbF_Create(m, m, m);
+    }
+    
+    return color;
+}
   exports.closest_map = undefined;
   exports.closest_size = undefined;
 
@@ -370,6 +466,31 @@ define([
     if (TRI_MODE || RASTER_MODE == RASTER_MODES.PATTERN || RASTER_MODE == RASTER_MODES.DIFFUSION) {
       colors.push([1, 1, 1]);
     }
+
+    if (BG_PALETTE) {
+      colors.push([0, 0, 0]);
+      exports.gen_closest_map();
+      return;
+    }
+    
+    if (SIMPLE_PALETTE) {
+      colors.push([0, 0, 0]);
+      
+      //colors.push([1, 1, 0]);
+      //colors.push([1, 0, 1]);
+      //colors.push([0, 1, 1]);
+      
+      colors.push([1, 0, 0]);
+      colors.push([0, 1, 0]);
+      colors.push([0, 0, 1]);
+      
+      if (ALLOW_PURPLE) {
+        colors.push(1, 0, 1);
+      }
+      
+      exports.gen_closest_map();
+      return;
+    }
     
     /*
     for (var i=0; i<19; i++) {
@@ -480,7 +601,7 @@ define([
       var clr = [(i+1)/base, (i+1)/base, 0]; 
       colors.push(clr)
     }
-    
+   
     //orange-yellow 2
     for (var i=0; i<base; i++) {
       var clr = [0.7, (i+1)/base, 0]; 
@@ -756,6 +877,7 @@ define([
       
       dis = 0.5*dis2 + 0.5*dis;
     }
+    
     if (DITHER_COLORS) { //small random factor
       dis += (Math.random()-0.5)*DITHER_RAND_FAC;
     }
@@ -872,35 +994,44 @@ define([
     
   */
   
+  var _cc_tmp1 = new Array();
+  var _cc_tmp2 = new Array();
+
   exports.closest_color_lab = function closest_color_lab(c1, nextout, ditherfac, not_diffusing) {
     var mindis = undefined;
-    var mindis2 = undefined;
+    var mindis2 = undefined, mindis3=undefined, mindis4=undefined, mindis5=undefined;
     var ret = undefined;
-    var ret2 = undefined;
+    var ret2 = undefined,ret3=undefined,ret4=undefined,ret5=undefined;
     
     ditherfac = ditherfac == undefined ? 0.0 : ditherfac;
+    var dfac = ditherfac;
+    
+    var minret = -1, minretdis = 1e17;
+    
+    c1 = rgb_to_lab(c1[0], c1[1], c1[2]);
+    
+    _cc_tmp1.length = lab_colors.length;
+    _cc_tmp2.length = lab_colors.length;
     
     for (var i=0; i<lab_colors.length; i++) {
       var c2 = lab_colors[i];
+      var dis = lab_colordis(c1, c2);
       
-      var dis = exports.lab_colordis(c1, c2) + (Math.random()-0.5)*2.0*ditherfac;
-      
-      if (mindis2 == undefined || (dis < mindis2 && dis > mindis)) {
-        mindis2 = dis;
-        ret2 = i;
-      }
-      
-      if (mindis == undefined || dis < mindis) {
-        mindis = dis;
-        ret = i;
-      }
+      _cc_tmp1[i] = i;
+      _cc_tmp2[i] = dis; // - dfac;
     }
+    
+    _cc_tmp1.sort((a, b) => _cc_tmp2[a] - _cc_tmp2[b]);
     
     if (nextout) {
-      nextout[0] = ret2;
+      let nlen = Math.min(nextout.length, _cc_tmp1.length);
+      
+      for (let i=0; i<nlen; i++) {
+        nextout[i] = _cc_tmp1[i];
+      }
     }
     
-    return ret;
+    return _cc_tmp1[0];
   }
   
   exports.closest_color = function closest_color(c1, nextout, ditherfac, not_diffusing) {
@@ -913,78 +1044,40 @@ define([
     var dfac = ditherfac;
     
     var minret = -1, minretdis = 1e17;
+
+    _cc_tmp1.length = colors.length;
+    _cc_tmp2.length = colors.length;
     
     for (var i=0; i<colors.length; i++) {
       var c2 = colors[i];
-      
       var dis = not_diffusing ? colordis_not_diffusing(c1, c2) : colordis(c1, c2);
       
-      /*
-      let dx = c1[0]-c2[0], dy = c1[1]-c2[1], dz = c1[2]-c2[2];
-      
-      dis = dx*dx + dy*dy + dz*dz;
-      dis = dis != 0.0 ? Math.sqrt(dis) / Math.sqrt(3) : 0.0;
-      //*/
-      
-      //dis += (Math.random()-0.5)*2.0*ditherfac*0.15;
-      //dis += dfac;
-      //dfac += ditherfac*(0.1/colors.length);
-      //+dfac
-      
-      if (mindis == undefined || dis+dfac < mindis) {
-        mindis5 = mindis4;
-        ret5 = ret4;
-        
-        mindis4 = mindis3;
-        ret4 = ret3;
-        
-        mindis3 = mindis2;
-        ret3 = ret2;
-        
-        mindis2 = mindis;
-        ret2 = ret;
-        
-        mindis = dis;
-        ret = i;
-      }
-      /*
-      if (mindis2 == undefined || (dis+dfac < mindis2 && dis > mindis)) {
-        mindis2 = dis;
-        ret2 = i;
-      }
-      //*/
+      _cc_tmp1[i] = i;
+      _cc_tmp2[i] = dis - dfac; //dfac != 0.0 ? Math.fract(dis + dfac) : dis;
     }
     
-    /*
-    for (var i=0; i<colors.length; i++) {
-      var c2 = colors[i];
-      
-      var dis = not_diffusing ? colordis_not_diffusing(c1, c2) : colordis(c1, c2);
-      //dis += (Math.random()-0.5)*2.0*ditherfac;
-      
-      if (dis >= mindis+ditherfac && dis <= mindis+ditherfac*2 && dis < minretdis) {
-        minret = ret = i;
-        minretdis = dis;
-      }
+    for (let i=0; i<_cc_tmp2.length; i++) {
+      //*
+      if (_cc_tmp2[i] < 0) {
+        _cc_tmp2.pop_i(i);
+        _cc_tmp1.pop_i(i);
+        i--;
+      }//*/
     }
     
-    */
-    if (minret < 0)
-      minret = ret;
-    
-    if (ret2 == undefined) ret2 = ret;
+    _cc_tmp1.sort((a, b) => _cc_tmp2[a] - _cc_tmp2[b]);
     
     if (nextout) {
-      nextout[0] = ret;
-      nextout[1] = ret2;
-      nextout[2] = ret3;
-      nextout[3] = ret4;
-      nextout[4] = ret5;
+      let nlen = Math.min(nextout.length, _cc_tmp1.length);
+      
+      for (let i=0; i<nlen; i++) {
+        nextout[i] = _cc_tmp1[i];
+      }
     }
     
-    return minret;
+    return _cc_tmp1[0];
   }
-
+  
   var _cwc = [0, 0, 0];
   /*
     on factor;

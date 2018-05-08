@@ -11,8 +11,8 @@ define(["util", "vectormath"], function(util, vectormath) {
   
   //maximum points per node before splitting
   //make sure to raise this after testing
-  var MAXPOINTS = 64
-  var MAXDEPTH = 1024
+  var MAXPOINTS = 16
+  var MAXDEPTH = 512
   
   var log_everything = false;
   
@@ -29,6 +29,9 @@ define(["util", "vectormath"], function(util, vectormath) {
   var _split_tmps_2 = util.cachering.fromConstructor(Vector3, 1024);
   var _foreach_tmp = new Vector3();
   var _tmp = new Vector3();
+  var _search2_tmp = new Vector3();
+  
+  let search_stack = new Int32Array(MAXDEPTH*8);
   
   var KDTree = exports.KDTree = class KDTree {
     constructor(min, max) {
@@ -47,6 +50,13 @@ define(["util", "vectormath"], function(util, vectormath) {
       this.totpoint = 0;
       
       this.root = this.newNode(min, max);
+    }
+    
+    clear() {
+      this.usednodes = this.totpoint = 0;
+      this.root = this.newNode(this.min, this.max);
+      
+      return this;
     }
     
     newNode(min, max) {
@@ -90,6 +100,10 @@ define(["util", "vectormath"], function(util, vectormath) {
         z = 0.0;
       }
       
+      return this.insert_intern(x, y, z, id, 0);
+    }
+    
+    insert_intern(x, y, z, id, depth) {
       let recurse = (ni, depth) => {
         let data = this.data;
         
@@ -127,7 +141,7 @@ define(["util", "vectormath"], function(util, vectormath) {
         } else if (data[ni+NTOTPOINT] >= MAXPOINTS) {
           this.split(ni, _insert_split_out);
 
-          this.insert.apply(this, arguments);
+          this.insert_intern(x, y, z, id, depth+1);
         } else { //add point
           let i = ni + NTOTPOINT + 1 + data[ni+NTOTPOINT]*4;
           
@@ -140,7 +154,7 @@ define(["util", "vectormath"], function(util, vectormath) {
         }
       }
       
-      recurse(this.root, 0);
+      recurse(this.root, depth+1);
       this.totpoint++;
     }
     
@@ -333,8 +347,75 @@ define(["util", "vectormath"], function(util, vectormath) {
       return this.search(p, r, callback, thisvar);
     }
     
+    //manually stacked version
+    search_2(p, r, callback, thisvar) {
+      let si = 0;
+      let stack = search_stack;
+      let data = this.data;
+      let co = _search2_tmp;
+      
+      let rsqr = r*r;
+      
+      stack[si++] = this.root;
+      
+      while (si > 0) {
+        if (si > this.maxdepth) {
+          break;
+        }
+        
+        let ni = stack[--si];
+        
+        if (data[ni+NCHILDA] != 0.0) {
+          for (let step=0; step<2; step++) {
+            let ni2 = data[ni + NCHILDA + step];
+            let ok = 0;
+            
+            for (let i=0; i<3; i++) {
+              let a = data[ni2+i], b = data[ni2+i+3];
+              
+              //console.log(a, b, p[i], r);
+              ok += !!(p[i]+1.01*r >= a && p[i]-1.01*r <= b);
+            }
+            
+            if (ok == 3) {
+              stack[si++] = ni2;
+            }
+          }
+        } else {
+          let totp = data[ni+NTOTPOINT];
+          let k = ni+NTOTPOINT + 1;
+          
+          for (let j=0; j<totp; j++, k += 4) {
+            co[0] = data[k];
+            co[1] = data[k+1];
+            co[2] = data[k+2];
+            
+            let dx = co[0] - p[0];
+            let dy = co[1] - p[1];
+            let dz = p.length > 2 ? (co[2] - p[2]) : 0;
+              
+            if (dx*dx + dy*dy + dz*dz < rsqr) {
+              let dostop;
+              
+              if (thisvar) {
+                dostop = callback.call(thisvar, data[k+3]);
+              } else {
+                dostop = callback(data[k+3]);
+              }
+              
+              if (dostop) {
+                return;
+              }
+            }
+          }
+        }
+      }
+    }
+    
     //if callback returns true then the search will stop
     search(p, r, callback, thisvar) {
+      return this.search_2(p, r, callback, thisvar);
+      
       let stop = false;
       
       let data = this.data;
@@ -478,7 +559,23 @@ define(["util", "vectormath"], function(util, vectormath) {
         
         root.push(p.id);
       });
+
+      for (let i=0; i<root.length; i += 4) {
+        let i2 = (~~(Math.random()*root.length/4))*4;
+        
+        for (let j=0; j<4; j++) {
+          let t = root[i+j];
+          root[i+j] = root[i2+j];
+          root[i2+j] = t;
+        }
+      }
       
+      this.clear();
+      for (let i=0; i<root.length; i += 4) {
+        this.insert(root[i], root[i+1], root[i+2], root[i+3]);
+      }
+      
+      return;
       let recurse = (node, depth) => {
         if (depth >= this.maxdepth) {
           if (log_everything || util.time_ms() - this.last_warn_time > 500) {

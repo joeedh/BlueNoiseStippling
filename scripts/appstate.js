@@ -176,7 +176,7 @@ define([
       reader.readAsDataURL(files[0]);
     },
 
-    function  on_mask_filechange(e, files) {
+    function on_mask_filechange(e, files) {
       console.log("got file", e, files)
       
       if (files.length == 0) return;
@@ -728,6 +728,7 @@ define([
     panel2.check("make_noise", "Make Noise (to test relax)");
     panel2.check("small_mask", "Small Mask Mode");
     panel2.check("xlarge_mask", "Extra Large Mask Mode");
+    panel2.check("special_offsets", "Use Encoded Offsets");
     
     panel2.check("use_mersenne", "Psuedo Random");
     panel2.check("black_bg", "Black BG");
@@ -735,6 +736,8 @@ define([
     panel2 = panel.panel("Palette");
     panel2.slider("pal_colors", "Number of Colors (Times 9)", 1, 32, 1, true);
     panel2.check("allow_purple", "Include Purple In Palette");
+    panel2.check("simple_palette", "Simple Palette");
+    panel2.check("bg_palette", "Black/white only");
     
     var load_value = 'built-in';
     
