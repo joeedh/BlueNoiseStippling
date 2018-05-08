@@ -10,36 +10,7 @@ var POX=6, POY=7, PDX=8, PDY=9, POLDX=10, POLDY=11, PTOT=12;
 
 var PRADIUS2 = PINTEN;
 
-window.DIMEN = 350;
-
-window.SPECIAL_OFFSETS = false; //use encoded lower-level offsets, multiplied by intensity
-window.XLARGE_MASK = false;
-window.SMALL_MASK = false;
-window.SCALE_POINTS = false;
-window.SHOW_KDTREE = false;
-
-window.DRAW_RMUL = 2.1;
-window.BLACK_BG = false;
-
-window.SCALE = 1.0;
-window.PANX = 0.0;
-window.PANY = 0.0;
-window.ACCUM_ALPHA = 0.3;
-window.MAKE_NOISE = false;
-window.RELAX_SPEED = 1.0;
-
-window.SHARPNESS = 0.5;
-window.SHARPEN_LUMINENCE = true;
-window.SHARPEN = true;
-
-window.USE_LAB = true;
-window.RASTER_IMAGE = false;
-
-window.USE_MERSENNE = false;
-window.TRI_MODE = false;
-
-//used to allocate voronoi diagram
-window.MAX_VCELL_SIZE = 32;
+window.APP_VERSION = 0.5;
 
 Math._random = Math.random;
 Math.random = function() {
@@ -50,35 +21,11 @@ Math.random = function() {
   }
 }
 
-var RASTER_MODES = {
+window.RASTER_MODES = {
   DIFFUSION : 0,
   PATTERN   : 1,
   CMYK      : 2
 }
-window.RASTER_MODE = RASTER_MODES.CMYK;
-
-window.LOW_RES_CUBE = false;
-window.GRID_MODE = false;
-window.DRAW_TRANSPARENT = false;
-window.STEPS = 5000;
-window.RAND_FAC = 0.0;
-window.DITHER_RAND_FAC = 0.0;
-
-window.BG_PALETTE = false;
-window.SIMPLE_PALETTE = false;
-window.ALLOW_PURPLE = true;
-window.CORRECT_FOR_SPACING = false;
-
-window.HEXAGON_MODE = false;
-window.ADAPTIVE_COLOR_DENSITY = true;
-
-window.NO_IMAGE_FILTER = false;
-
-window.RENDERED_IMAGE_SIZE = 1024;
-
-window.DITHER_COLORS = 1;
-window.PAL_COLORS = 8;
-window.SHOW_COLORS = 1;
 
 window._search_offs = new Array(64);
 _search_offs[0] = [];
@@ -90,6 +37,91 @@ define([
   'use strict';
   
   var exports = _const = {};
+
+  exports.defaultConfig = {
+    DIMEN : 350,
+
+    SPECIAL_OFFSETS : false, //use encoded lower-level offsets, multiplied by intensity
+    XLARGE_MASK : false,
+    SMALL_MASK : false,
+    SCALE_POINTS : false,
+    SHOW_KDTREE : false,
+
+    DRAW_RMUL : 1.3,
+    BLACK_BG : false,
+
+    SCALE : 1.0,
+    PANX : 0.0,
+    PANY : 0.0,
+    ACCUM_ALPHA : 0.3,
+    MAKE_NOISE : false,
+    RELAX_SPEED : 1.0,
+
+    SHARPNESS : 0.5,
+    SHARPEN_LUMINENCE : true,
+    SHARPEN : true,
+
+    USE_LAB : true,
+    RASTER_IMAGE : false,
+
+    USE_MERSENNE : false,
+    TRI_MODE : false,
+
+  //used to allocate voronoi diagram
+    MAX_VCELL_SIZE : 32,
+    RASTER_MODE : RASTER_MODES.CMYK,
+    
+    TONE_CURVE   : undefined,
+    LOW_RES_CUBE : true,
+    GRID_MODE : false,
+    DRAW_TRANSPARENT : false,
+    STEPS : 5000,
+    RAND_FAC : 0.0,
+    DITHER_RAND_FAC : 0.0,
+
+    BG_PALETTE : false,
+    SIMPLE_PALETTE : false,
+    ALLOW_PURPLE : true,
+    CORRECT_FOR_SPACING : false,
+
+    HEXAGON_MODE : false,
+    ADAPTIVE_COLOR_DENSITY : true,
+
+    NO_IMAGE_FILTER : false,
+
+    RENDERED_IMAGE_SIZE : 1024,
+
+    DITHER_COLORS : 1,
+    PAL_COLORS : 8,
+    SHOW_COLORS : 1,
+  };
+  
+  exports.DefaultCurves = {
+    TONE_CURVE : undefined
+  };
+  
+  exports.toJSON = function() {
+    let ret = {};
+    
+    for (let k in exports.defaultConfig) {
+      ret[k] = window[k];
+    }
+    
+    return ret;
+  }
+  
+  exports.loadJSON = function(json) {
+    for (let k in json) {
+      window[k] = json[k];
+    }
+    
+    return this;
+  }
+  
+  //load config into window. need to refactor to use const directly.
+  for (let k in exports.defaultConfig) {
+    window[k] = exports.defaultConfig[k];
+  }
   
   var _spotfuncs = exports._spotfuncs = {};
 

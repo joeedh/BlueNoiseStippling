@@ -896,14 +896,17 @@ define([
     //w1=w2=w3=1.0;
     
     dis = (Math.abs(dr)*w1 + Math.abs(dg)*w2 + Math.abs(db)*w3)/(w1+w2+w3);
+
     //dis = dr*dr*w1*w1 + dg*dg*w2*w2 + db*db*w3*w3;
     //dis = dis == 0.0 ? 0.0 : Math.sqrt(dis)/((w1+w2+w3)*Math.sqrt(3.0));
     
+    /*
     if (c2[0] == c2[1] && c2[0] == c2[2]) {
-      var dis2 = dis != 0.0 ? Math.sqrt(dis) : 0.0; 
+      var dis2 = dr*dr + dg*dg + db*db;
+      dis2 = dis2 != 0.0 ? Math.sqrt(dis2) : 0.0; 
       
       dis = 0.5*dis2 + 0.5*dis;
-    }
+    }//*/
     
     if (DITHER_COLORS) { //small random factor
       dis += (Math.random()-0.5)*DITHER_RAND_FAC;

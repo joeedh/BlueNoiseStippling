@@ -461,9 +461,10 @@ define([
           
           var rotmask = 1;
           let offx = 0, offy = 0;
+          let stop = false;
           
-          for (var i=0; i<wid; i++) {
-            for (var j=0; j<wid; j++) {
+          for (var i=0; !stop && i<wid; i++) {
+            for (var j=0; !stop && j<wid; j++) {
               var ix2 = (ix+i) % cw;
               var iy2 = (iy+j) % ch;
               
@@ -558,6 +559,9 @@ define([
                 finalth += mask[idx2]/255.0 + ditherfac;
                 sumx += i/size;
                 sumy += j/size;
+                
+                //stop = true;
+                //break;
               }
             }
           }
@@ -603,9 +607,9 @@ define([
           }
           
           if (!SMALL_MASK && SPECIAL_OFFSETS) {
-            let ofac = Math.pow(Math.max(1.0-f, 0.0001), 7.0);
+            let ofac = Math.pow(Math.max(1.0-f, 0.0001), 19.0);
             
-            ofac *= mscale/3;
+            ofac *= mscale/8;
             //ofac = 0.5;
             //ofac=0.25;
             //ofac = 1.0-f;

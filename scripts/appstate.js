@@ -32,8 +32,8 @@ define([
     return ret;
   }
   
-  var AppState = exports.AppState = Class([
-    function constructor(g, canvas) {
+  var AppState = exports.AppState = class {
+    constructor(g, canvas) {
       this.bluenoise = new bluenoise.BlueNoise();
       this.drawer = new draw.Drawer(this);
       this.image = undefined;
@@ -45,36 +45,36 @@ define([
       this.color = "black";
       
       this.drawlines = [];
-    },
+    }
     
-    Class.getter(function gridsize() {
+    get gridsize() {
       throw new Error("Refactor error!");
-    }),
-    Class.getter(function cells() {
+    }
+    get cells() {
       throw new Error("Refactor error!");
-    }),
-    Class.getter(function grid() {
+    }
+    get grid() {
       throw new Error("Refactor error!");
-    }),
-    Class.getter(function celldim() {
+    }
+    get celldim() {
       throw new Error("Refactor error!");
-    }),
-    Class.getter(function depth() {
+    }
+    get depth() {
       throw new Error("Refactor error!");
-    }),
+    }
     
-    function make_drawline(v1, v2) {
+    make_drawline(v1, v2) {
       this.drawlines.push(v1[0]);
       this.drawlines.push(v1[1]);
       this.drawlines.push(v2[0]);
       this.drawlines.push(v2[1]);
-    },
+    }
     
-    function reset_drawlines() {
+    reset_drawlines() {
       this.drawlines = [];
-    },
+    }
     
-    function on_load() {
+    on_load() {
       this.cur_raster_i = 0;
       
       var indexmap = [];
@@ -92,13 +92,15 @@ define([
       }
       
       this.bluenoise.init(DIMEN);
-    },
+    }
     
-    function init() {
+    init() {
       this.bluenoise.init(DIMEN);
-    },
+    }
     
-    function reset() {
+    reset() {
+      colors.gen_closest_map();
+      
       if (RASTER_IMAGE)  {
         var size = ~~(SCALE*Math.min(canvas.width, canvas.height));
         size = DIMEN;
@@ -118,13 +120,13 @@ define([
       
       this.bluenoise.reset(RASTER_IMAGE ? this.outimage : undefined);
       this.drawer.reset(RASTER_IMAGE ? this.outimage : undefined);
-    },
+    }
     
-    function draw() {
+    draw() {
       this.drawer.draw(this.g);
-    },
+    }
     
-    function on_keydown(e) {
+    on_keydown(e) {
       console.log(e.keyCode);
       switch (e.keyCode) {
         case 75: //kkey
@@ -150,9 +152,9 @@ define([
           console.log("DONE");
           break;
       }
-    },
+    }
     
-    function renderImage() {
+    renderImage() {
       var size = RENDERED_IMAGE_SIZE;
       var oldscale = window.SCALE;
       
@@ -210,13 +212,36 @@ define([
       return new Promise((accept, reject) => {
         accept(canvas);
       });
-    },
+    }
     
-    function store_bluenoise_mask() {
+    toJSON() {
+      return {
+        APP_VERSION : APP_VERSION,
+        settings : cconst.toJSON()
+      };
+    }
+    
+    loadJSON(json) {
+      cconst.loadJSON(json.settings);
+    }
+    
+    save() {
+      localStorage.startup_file_bn6 = JSON.stringify(this);
+    }
+    
+    load() {
+      try {
+        this.loadJSON(JSON.parse(localStorage.startup_file_bn6));
+      } catch (error) {
+        util.print_stack(error);
+      }
+    }
+    
+    store_bluenoise_mask() {
       localStorage.startup_mask_bn4 = _image_url;
-    },
+    }
     
-    function  on_filechange(e, files) {
+    on_filechange(e, files) {
       console.log("got file", e, files)
       if (files.length == 0) return;
       
@@ -234,9 +259,9 @@ define([
       };
       
       reader.readAsDataURL(files[0]);
-    },
+    }
 
-    function on_mask_filechange(e, files) {
+    on_mask_filechange(e, files) {
       console.log("got file", e, files)
       
       if (files.length == 0) return;
@@ -250,9 +275,9 @@ define([
       };
       
       reader.readAsDataURL(files[0]);
-    },
+    }
     
-    function on_image_read(img, cb, thisvar) {
+    on_image_read(img, cb, thisvar) {
       console.log("got image")
       var this2 = this;
       
@@ -291,9 +316,9 @@ define([
         cb(img);
       else
         cb.call(thisvar, img);
-    },
+    }
     
-    function source_image_read(img) {
+    source_image_read(img) {
       this.bluenoise.reset();
       this.image = img;
       
@@ -454,6 +479,10 @@ define([
           var b = (data.data[idx+2]/255);
           var a = 1.0-(data.data[idx+3]/255);
           
+          r = TONE_CURVE.evaluate(r);
+          g = TONE_CURVE.evaluate(g);
+          b = TONE_CURVE.evaluate(b);
+          
           //un-srgb
           
           if (use_lab) {
@@ -547,49 +576,8 @@ define([
       this.reset();
       window.redraw_all();
     }
-  ]);
-  
-  function save_setting(key, val) {
-    var settings = localStorage.startup_file_bn4;
-    
-    if (settings == undefined) {
-        settings = {};
-    } else {
-      try {
-        settings = JSON.parse(settings);
-      } catch (error) {
-        console.log("Warning, failed to parse cached settings");
-        settings = {};
-      }
-    }
-    
-    settings[key] = val;
-    localStorage.startup_file_bn4 = JSON.stringify(settings);
-  }
-  
-  function load_setting(key) {
-    var settings = localStorage.startup_file_bn4;
-    
-    if (settings == undefined) {
-        settings = {};
-    } else {
-      try {
-        settings = JSON.parse(settings);
-      } catch (error) {
-        console.log("Warning, failed to parse cached settings");
-        settings = {};
-      }
-    }
-    
-    return settings[key];
-  }
-  
-  var lowrescube = load_setting("LOW_RES_CUBE");
-  
-  if (lowrescube !== undefined) {
-    window.LOW_RES_CUBE = true;
-  }
-  
+  };
+ 
   window.addEventListener("keydown", function(e) {
     _appstate.on_keydown(e);
   });
@@ -604,6 +592,7 @@ define([
     var g = canvas.getContext("2d");
     
     window._appstate = new AppState(g, canvas);
+    _appstate.load();
     
     var animreq = undefined;
     
@@ -627,8 +616,8 @@ define([
     //these bind functions bind constants from const.js.
     //they typically take the constant name (converted to lowercase)
     //as their first argument
-    var gui2 = new ui.UI();
-    var gui = new ui.UI();
+    var gui2 = new ui.UI("ui2_bn6", window);
+    var gui = new ui.UI("ui1_bn6", window);
     
     window.gui = gui;
     
@@ -678,22 +667,22 @@ define([
 
     var panel = gui.panel("Settings");
     
-    panel.slider("dimen", "Density", 1, 2048, 1, true);
-    panel.slider("steps", "Points Per Step", 1, 50000, 1, true);
-    panel.slider("draw_rmul", "Point Size", 0.1, 8.0, 0.01, false, true);
-    panel.slider("rand_fac", "Added Random", 0.0, 3.0, 0.005, false, true);
+    panel.slider("DIMEN", "Density", 32, 1, 2048, 1, true);
+    panel.slider("STEPS", "Points Per Step", 32, 1, 50000, 1, true);
+    panel.slider("DRAW_RMUL", "Point Size", 1.0, 0.1, 8.0, 0.01, false, true);
+    panel.slider("RAND_FAC", "Added Random", 0.0, 0.0, 3.0, 0.005, false, true);
     
-    panel.slider("relax_speed", "Relax Speed", 0.001, 8.0, 0.001, true);
+    panel.slider("RELAX_SPEED", "Relax Speed", 1.0, 0.001, 8.0, 0.001, true);
 
-    panel.check("show_kdtree", "Show kdtree");
-    panel.check('scale_points', 'Radius Scale');
-    panel.check('tri_mode', "Triangle Mode");
+    panel.check("SHOW_KDTREE", "Show kdtree");
+    panel.check('SCALE_POINTS', 'Radius Scale');
+    panel.check('TRI_MODE', "Triangle Mode");
     
-    //panel.slider("dither_rand_fac", "Dither Random", 0.0, 3.0,0.005, false);
-    panel.check("sharpen", "Sharpen");
-    panel.slider("sharpness", "Sharpness", 0.0, 3.5, 0.001, false);
-    panel.check('sharpen_luminence', 'Luminence Only');
-    panel.check('use_lab', 'Use Lab Space');
+    panel.slider("DITHER_RAND_FAC", "Dither Random", 0.0, 0.0, 3.0,0.005, false);
+    panel.check("SHARPEN", "Sharpen");
+    panel.slider("SHARPNESS", "Sharpness", 0.5, 0.0, 3.5, 0.001, false);
+    panel.check('SHARPEN_LUMINENCE', 'Luminence Only');
+    panel.check('USE_LAB', 'Use Lab Space');
     panel.open();
     
     panel = gui.panel("Save Tool")
@@ -707,53 +696,58 @@ define([
       });
     });
     
-    panel.slider("rendered_image_size", "Rendered Image Size", 1, 4096, 1, true);
+    panel.slider("RENDERED_IMAGE_SIZE", "Rendered Image Size", 1024, 1, 4096, 1, true);
 
     panel = panel.panel("Canvas Position");
-    panel.slider("scale", "Scale", 0.05, 5.0, 0.01, false, true);
-    panel.slider("panx", "Pan X", -1.5, 1.5, 0.01, false, true);
-    panel.slider("pany", "Pan Y", -1.5, 1.5, 0.01, false, true);
+    panel.slider("SCALE", "Scale", 1.0, 0.05, 5.0, 0.01, false, true);
+    panel.slider("PANX", "Pan X", 0.0, -1.5, 1.5, 0.01, false, true);
+    panel.slider("PANY", "Pan Y", 0.0, -1.5, 1.5, 0.01, false, true);
     
     panel = gui2.panel("More Options");
     var panel2 = panel.panel("General");
     
-    panel2.check("dither_colors", "Dither Colors");
-    panel2.check("show_colors", "Show Colors");
-    panel2.check("adaptive_color_density", "Denser For Color")
-    panel2.check("hexagon_mode", "Hexagonish");
-    panel2.check("grid_mode", "Be More Grid Like");
+    var panel3 = panel2.panel("Tone Curve");
+    window.TONE_CURVE = panel3.curve("TONE_CURVE", "Tone Curve", cconst.DefaultCurves.TONE_CURVE).curve;
+    
+    panel2.check("DITHER_COLORS", "Dither Colors");
+    panel2.check("SHOW_COLORS", "Show Colors");
+    panel2.check("ADAPTIVE_COLOR_DENSITY", "Denser For Color")
+    panel2.check("HEXAGON_MODE", "Hexagonish");
+    panel2.check("GRID_MODE", "Be More Grid Like");
     
     var panel3 = panel2.panel("Simple Raster");
-    panel3.check("raster_image", "Enable");
+    panel3.check("RASTER_IMAGE", "Enable");
     
-    var val = ui.load_setting('raster_mode');
-    val = val == undefined ? RASTER_MODE : parseInt(val);
-    window.RASTER_MODE = val;
+    let rastermode = "";
+    for (let k in RASTER_MODES) {
+      if (RASTER_MODES[k] == RASTER_MODE) {
+        rastermode = k;
+        break;
+      }
+    }
     
-    panel3.listenum("Mode", RASTER_MODES, val, function(value) {
-      window.RASTER_MODE = parseInt(value);
-      console.log("setting raster_mode to", RASTER_MODE, typeof RASTER_MODE)
-      ui.save_setting("raster_mode", RASTER_MODE);
-    });
+    console.log("SDFSDFSDF", rastermode);
     
-    panel2.check("make_noise", "Make Noise (to test relax)");
-    panel2.check("small_mask", "Small Mask Mode");
-    panel2.check("xlarge_mask", "Extra Large Mask Mode");
-    panel2.check("special_offsets", "Use Encoded Offsets");
+    panel3.listenum("RASTER_MODE", "Mode", RASTER_MODES, rastermode);
     
-    panel2.check("use_mersenne", "Psuedo Random");
-    panel2.check("black_bg", "Black BG");
+    panel2.check("MAKE_NOISE", "Make Noise (to test relax)");
+    panel2.check("SMALL_MASK", "Small Mask Mode");
+    panel2.check("XLARGE_MASK", "Extra Large Mask Mode");
+    panel2.check("SPECIAL_OFFSETS", "Use Encoded Offsets");
+    
+    panel2.check("USE_MERSENNE", "Psuedo Random");
+    panel2.check("BLACK_BG", "Black BG");
     
     panel2 = panel.panel("Palette");
-    panel2.slider("pal_colors", "Number of Colors (Times 9)", 1, 32, 1, true);
-    panel2.check("allow_purple", "Include Purple In Palette");
-    panel2.check("simple_palette", "Simple Palette");
-    panel2.check("bg_palette", "Black/white only");
+    panel2.slider("PAL_COLORS", "Number of Colors (Times 9)", 4, 1, 32, 1, true);
+    panel2.check("ALLOW_PURPLE", "Include Purple In Palette");
+    panel2.check("SIMPLE_PALETTE", "Simple Palette");
+    panel2.check("BG_PALETTE", "Black/white only");
     
     var load_value = 'built-in';
     
     panel2 = panel.panel("Blue Noise Mask");
-    panel2.listenum('Mask', {
+    panel2.listenum(undefined, 'Mask', {
       'Built In'                 : 'built-in',
       'Large 2'                  : 'mask_large_2.png',
       'Large 2 (smoothed)'       : 'mask_large_2_smoothed.png',
@@ -808,15 +802,18 @@ define([
     });
     
     panel2 = panel.panel("Misc")
-    panel2.check("draw_transparent", "Accumulation Mode");
-    panel2.slider("accum_alpha", "Accum Alpha", 0.001, 1.0, 0.001, false, true);
-    panel2.check("correct_for_spacing", "Correct_For_Spacing");
-    panel2.check("low_res_cube", "Low Res Cube");
+    panel2.check("DRAW_TRANSPARENT", "Accumulation Mode");
+    panel2.slider("ACCUM_ALPHA", "Accum Alpha", 1.0, 0.001, 1.0, 0.001, false, true);
+    panel2.check("CORRECT_FOR_SPACING", "Correct_For_Spacing");
+    panel2.check("LOW_RES_CUBE", "Low Res Cube");
     
     //.slider will have loaded store setting from localStorage,
     //if it exists
     colors.gen_colors();
     
+    
+    gui.load();
+    gui2.load();
     
     _appstate.init();
     
