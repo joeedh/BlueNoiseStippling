@@ -880,6 +880,7 @@ define([
     
     if (DITHER_COLORS) { //small random factor
       dis += (Math.random()-0.5)*DITHER_RAND_FAC;
+      dis = Math.max(dis, 0.0);
     }
     
     return dis;
@@ -910,6 +911,7 @@ define([
     
     if (DITHER_COLORS) { //small random factor
       dis += (Math.random()-0.5)*DITHER_RAND_FAC;
+      dis = Math.max(dis, 0.0);
     }
   
     return dis;

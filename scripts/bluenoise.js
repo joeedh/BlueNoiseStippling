@@ -2,9 +2,9 @@
 var _bluenoise = undefined; 
 define([
   'util', 'const', 'draw', 'colors', 'diffusion',
-  'delaunay', 'kdtree', 'kdtree2'
+  'delaunay', 'kdtree', 'kdtree2', 'smoothmask'
 ], function(util, cconst, draw, colors, diffusion,
-            delaunay, kdtree, kdtree2) {
+            delaunay, kdtree, kdtree2, smoothmask) {
   "use strict";
   
   var exports = _bluenoise = {};
@@ -272,12 +272,142 @@ define([
       }
     },
     
+    function step_smask(custom_steps) {
+      let points = this.points;
+      var raster_image = this.raster_image;
+      var steps = custom_steps ? custom_steps : window.STEPS;
+      var size = this.gridsize;
+      var iw = DIMEN, ih=DIMEN, cw=iw, ch=ih;
+      var start_r = this.start_r;
+     
+      if (this.sampler == undefined) {
+        console.log("image hasn't loaded yet");
+      }
+
+      const sqrt3 = Math.sqrt(3);
+      let size2 = Math.ceil(size / this.smask.blocksize);
+
+      steps = Math.ceil(steps / size2 / size2);
+
+      for (var si=0; si<steps; si++, this.cur++) {
+          if (this.cur >= size2*size2) {
+            console.log("Done.");
+            break;
+          }
+          
+          var ix = this.cur % size2;
+          var iy = ~~(this.cur / size2);
+          
+          for (let p of this.smask.points) {
+                //let co = p.evaluate(0.99999);
+                let co = p.evaluate(0.05);
+                let x = Math.fract(co[0]), y = Math.fract(co[1]);
+                x = co[0], y = co[1];
+
+                x = x / size2 + ix / size2;
+                y = y / size2 + iy / size2;
+                
+                x = x*2.0 - 1.0;
+                y = y*2.0 - 1.0;
+                
+                var clr = this.sampler(x, y, size, 1.0);
+
+                if (clr[0] < 0) {
+                  continue; //sampler requested we discard this sample
+                }
+
+                if (MAKE_NOISE) {
+                  clr[0] = clr[1] = clr[2] = 0.5; //Math.random()*0.3+0.7;
+                }
+                var f = clr[0]*clr[0] + clr[1]*clr[1] + clr[2]*clr[2];
+                f = f != 0.0 ? Math.sqrt(f) / sqrt3 : 0.0;
+
+                var sat = Math.abs(1.0-clr[0]) +  Math.abs(1.0-clr[1]) +  Math.abs(1.0-clr[2]);
+                sat /= 3.0;
+
+                if (ADAPTIVE_COLOR_DENSITY) {
+                  //scale spacing of points by saturation (how much color there is)
+                  f *= Math.pow(1.0-sat, 2);
+                }
+                
+                if (window._f === undefined) {
+                      window._f = 0.0;
+                }
+                //f = 0.0;
+                
+                f = Math.min(Math.max(f, 0.0), 0.99999);
+
+                let dfac = 1.01;
+
+                let ok = (1.0-f)*dfac >= p.gen*0.999;
+                //let ok = f <= p.gen;
+
+                if (!ok) {
+                  continue;
+                }
+                
+                var ci = colors.closest_color(clr);
+                
+                let co2 = p.evaluate((1.0 - f)*dfac);
+                
+                //co2 = co;
+                x = co2[0], y = co2[1];
+                //x = Math.fract(co2[0]);
+                //y = Math.fract(co2[1]);
+
+                //let ti = p.offsets.length/2;
+                //x = Math.fract(p.offsets[ti]);
+                //y = Math.fract(p.offsets[ti+1]);
+
+                x = x / size2 + ix / size2;
+                y = y / size2 + iy / size2;
+                
+                x = x*2.0 - 1.0;
+                y = y*2.0 - 1.0;
+
+                var pi = points.length;
+                for (var j=0; j<PTOT; j++) {
+                  points.push(0);
+                }
+
+                points[pi] = x;
+                points[pi+1] = y;
+                points[pi+2] = start_r//*(1.0 + 0.25*(sat));
+                points[pi+3] = f;
+                points[pi+4] = ci;
+                //points[pi+5] = lvl;
+                points[pi+PRADIUS2] = -1;//points[pi+PRADIUS];
+
+                points[pi+POX] = points[pi+POLDX] = points[pi];
+                points[pi+POY] = points[pi+POLDY] = points[pi+1];
+          }
+      }
+      
+      //if (!skip_points_display) {
+        console.log("points", points.length/PTOT);
+        console.log("\n");
+      //}
+      
+      if (TRI_MODE) {//} && !skip_points_display) {
+        console.log("regenerating triangulation...");
+        this.del();
+      } else if (SCALE_POINTS) {//} && !skip_points_display) {
+        this.calc_radii();
+      }
+    },
+
+    //REFACTOR MUST HAPPEN!
     function step(custom_steps, skip_points_display) {
       if (RASTER_IMAGE && RASTER_MODE == RASTER_MODES.PATTERN) {
         this.step_b();
         return;
       }
       
+      if (this.smask !== undefined) {
+        this.step_smask(custom_steps);
+        return;
+      }
+
       this.r = 1.0;
       
       var raster_image = this.raster_image;
@@ -307,7 +437,7 @@ define([
       
       var mask = this.mask.data.data;
       var mscale = SMALL_MASK ? 1 : (XLARGE_MASK ? 8 : 4);
-      
+
       var oks = new Array(colors.colors.length);
       var clrws = new Array(colors.colors.length);
       var clridxs = new Array(colors.colors.length);
@@ -535,10 +665,10 @@ define([
                     pass = pass || oks[k];
                 }
               }
-
+              
               var rok2 = aok5 && 1.0-fr < mask[idx5]/255.0;
-              var gok2 = aok3 && 1.0-fg < mask[idx3+1]/255.0;
-              var bok2 = aok4 && 1.0-fb < mask[idx4+2]/255.0;
+              var gok2 = aok3 && 1.0-fg < mask[idx3]/255.0;
+              var bok2 = aok4 && 1.0-fb < mask[idx4]/255.0;
               
               rok |= rok2;
               gok |= gok2;
@@ -607,7 +737,7 @@ define([
           }
           
           if (!SMALL_MASK && SPECIAL_OFFSETS) {
-            let ofac = Math.pow(Math.max(1.0-f, 0.0001), 19.0);
+            let ofac = Math.pow(Math.max(1.0-f, 0.0001), 3.0);
             
             ofac *= mscale/8;
             //ofac = 0.5;
@@ -803,6 +933,12 @@ define([
             var rix2 = ~~((x*0.5+0.5001)*2*raster_image.width*0.99999), riy2 = ~~(2*(y*0.5+0.5001)*raster_image.height*0.99999);
             //rdata[ridx] = rdata[ridx+1] = rdata[ridx+2] = 255;
             
+            
+            
+            if (bok) {
+              dot(rix, riy, fb, 0, 0, 255, 0);
+            }
+            
             //*
             if (rok) {
               dot(rix, riy, fr, 255, 0, 0, 0);
@@ -811,10 +947,6 @@ define([
             if (gok) {
               dot(rix, riy, fg, 0, 255, 0, 0);
             } 
-            
-            if (bok) {
-              dot(rix, riy, fb, 0, 0, 255, 0);
-            }
             
             if (fok) {
               dot(rix, riy, f, 255, 255, 255, 0);
@@ -836,7 +968,7 @@ define([
           }
           points[pi] = x;
           points[pi+1] = y;
-          points[pi+2] = start_r*(1.0 + 0.25*(sat));
+          points[pi+2] = start_r//*(1.0 + 0.25*(sat));
           points[pi+3] = f;
           points[pi+4] = ci;
           points[pi+5] = lvl;
@@ -881,6 +1013,14 @@ define([
     
     //maskdata is data url, url that has full image encoded in it
     function load_mask(maskdata) {
+      if (maskdata.startsWith("SMOOTHMASK")) {
+        maskdata = maskdata.slice(10, maskdata.length);
+        
+        this.smask = new smoothmask.PointSet().fromBinary(maskdata);
+      } else {
+        this.smask = undefined;
+      }
+      
       this._mask = new Image();
       this._mask.src = maskdata;
       
@@ -1200,7 +1340,7 @@ define([
       let ps = this.points;
       
       let minrad = 2.5 / (Math.sqrt(2)*this.dimen);
-      let maxrad = minrad*17;
+      let maxrad = minrad*6;
       
       let sumdx=0, sumdy=0, sumw=0, x1=0, y1=0, r1=0, pi1, searchr;
       let tree = this.calc_kdtree();
