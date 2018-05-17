@@ -39,7 +39,7 @@ define([
   var exports = _const = {};
 
   exports.defaultConfig = {
-    DIMEN : 350,
+    DIMEN : 165,
 
     SPECIAL_OFFSETS : false, //use encoded lower-level offsets, multiplied by intensity
     XLARGE_MASK : false,
