@@ -12,6 +12,11 @@ define([
     LINEAR_NONUNIFORM : 1
   };
   
+  let OffsetsType = exports.OffsetsType = {
+    FLOAT32 : 0,
+    UINT16  : 1
+  };
+
   let OFFX=0, OFFY=1, OFFTOT=2;
   let NX=0, NY=1, NT=2, NTOT=3;
 
@@ -30,6 +35,7 @@ define([
       this.buffer = new ArrayBuffer(8);
       
       this.u8view = new Uint8Array(this.buffer);
+      this.u16view = new Uint16Array(this.buffer);
       this.i32view = new Int32Array(this.buffer);
       this.f32view = new Float32Array(this.buffer);
       this.f64view = new Float64Array(this.buffer);
@@ -39,6 +45,16 @@ define([
       this.i32view[0] = f;
       
       for (let i=0; i<4; i++) {
+        this.push(this.u8view[i]);
+      }
+      
+      return this;
+    }
+    
+    uint16(f) {
+      this.u16view[0] = f;
+      
+      for (let i=0; i<2; i++) {
         this.push(this.u8view[i]);
       }
       
@@ -92,6 +108,11 @@ define([
       return this.view.getInt32(this.i - 4, this.endian);
     }
     
+    uint16() {
+      this.i += 2;
+      return this.view.getUint16(this.i - 2, this.endian);
+    }
+    
     byte() {
       this.i += 1;
       return this.view.getInt8(this.i - 1);
@@ -125,6 +146,11 @@ define([
       this.gen = decoder.float64();
       this.r = decoder.float64();
       
+      this.fieldlen = fieldLens[this.curvetype];
+
+      this.decode16(decoder);
+
+      /*
       let len = decoder.int32();
       decoder.int32(); //drop padding bytes
       
@@ -133,9 +159,66 @@ define([
       for (let i=0; i<len; i++) {
         this.offsets.push(decoder.float32());
       }
-      
-      this.fieldlen = fieldLens[this.curvetype];
+      //*/
 
+      return this;
+    }
+    
+    encode16(encoder) {
+      let min = 1e17, max = -1e17;
+      for (let i=0; i<this.offsets.length; i++) {
+        min = Math.min(min, this.offsets[i]);
+        max = Math.max(max, this.offsets[i]);
+      }
+      
+      this.min = min;
+      this.max = max;
+      
+      encoder.int32(this.offsets.length);
+      encoder.int32(OffsetsType.UINT16);
+
+      encoder.float32(min);
+      encoder.float32(max);
+      
+      for (let i=0; i<this.offsets.length; i++) {
+        let f = this.offsets[i];
+        
+        f = (f - min) / (max - min);
+        f = ~~(f * 65535);
+        
+        encoder.uint16(f);
+      }
+      
+      return this;
+    }
+    
+    decode16(decoder) {
+      let len = decoder.int32();
+      let datatype = decoder.int32();
+      
+      //legacy float32 data
+      if (datatype == OffsetsType.FLOAT32) {
+        this.offsets.length = 0;
+        for (let i=0; i<len; i++) {
+          this.offsets.push(decoder.float32());
+        }
+
+        return;
+      }
+      
+      let min = this.min = decoder.float32();
+      let max = this.max = decoder.float32();
+      
+      this.offsets.length = 0;
+      
+      for (let i=0; i<len; i++) {
+        let f = decoder.uint16() / 65535;
+        
+        f = f*(max - min) + min;
+        
+        this.offsets.push(f);
+      }
+      
       return this;
     }
     
@@ -146,12 +229,15 @@ define([
       encoder.float64(this.gen);
       encoder.float64(this.r);
       
+      this.encode16(encoder);
+      /*
       encoder.int32(this.offsets.length);
       encoder.int32(0); //padding
       
       for (let f of this.offsets) {
         encoder.float32(f);
       }
+      //*/
     }
     
     toJSON() {
@@ -239,7 +325,7 @@ define([
 
         let err = Math.abs(dx1*dy2 - dy1*dx2);
         
-        if (err < 0.0005 && d1 > 0.001) {
+        if (err < 0.00005 && d1 > 0.001) {
           continue;
         }
 

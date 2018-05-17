@@ -1,10 +1,11 @@
 
 var _bluenoise = undefined; 
 define([
-  'util', 'const', 'draw', 'colors', 'diffusion',
-  'delaunay', 'kdtree', 'kdtree2', 'smoothmask'
+  'util', 'const', 'draw', 'colors', 'diffusion', 'delaunay', 
+  'kdtree', 'kdtree2', 'smoothmask', "indexdb_store", "smoothmask_file"
 ], function(util, cconst, draw, colors, diffusion,
-            delaunay, kdtree, kdtree2, smoothmask) {
+            delaunay, kdtree, kdtree2, smoothmask, indexdb_store, 
+            smoothmask_file) {
   "use strict";
   
   var exports = _bluenoise = {};
@@ -287,7 +288,7 @@ define([
       const sqrt3 = Math.sqrt(3);
       let size2 = Math.ceil(size / this.smask.blocksize);
 
-      steps = Math.ceil(steps / size2 / size2);
+      steps = Math.ceil(steps / this.smask.blocksize / this.smask.blocksize);
 
       for (var si=0; si<steps; si++, this.cur++) {
           if (this.cur >= size2*size2) {
@@ -1004,11 +1005,13 @@ define([
       this.errgrid = new Float64Array(size*size*3);
       this.errgrid.fill(0, 0, this.errgrid.length);
       
-      if ("startup_mask_bn4" in localStorage) {
-        this.load_mask(localStorage.startup_mask_bn4);
-      } else {
-        this.load_mask(blue_mask_file);
-      }
+      new indexdb_store.IndexDBStore("bluenoise_mask").read("data").then((result) => {
+        if (result === undefined) {
+          result = smoothmask_file;
+        }
+        
+        this.load_mask(result);
+      });
     },
     
     //maskdata is data url, url that has full image encoded in it

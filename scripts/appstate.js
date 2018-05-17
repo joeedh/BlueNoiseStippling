@@ -1,8 +1,8 @@
 var __appstate = undefined;
 
 define([
-  "util", "const", "bluenoise", "draw", "colors", "ui", "spectrum"
-], function(util, cconst, bluenoise, draw, colors, ui, spectrum) {
+  "util", "const", "bluenoise", "draw", "colors", "ui", "spectrum", "indexdb_store", "smoothmask_file"
+], function(util, cconst, bluenoise, draw, colors, ui, spectrum, indexdb_store, smoothmask_file) {
   "use strict";
   
   var exports = __appstate = {};
@@ -238,7 +238,8 @@ define([
     }
     
     store_bluenoise_mask() {
-      localStorage.startup_mask_bn4 = _image_url;
+      new indexdb_store.IndexDBStore("bluenoise_mask").write("data", _image_url);
+      //localStorage.startup_mask_bn4 = _image_url;
     }
     
     on_filechange(e, files) {
@@ -270,7 +271,8 @@ define([
       var this2 = this;
       
       reader.onload = function(e) {
-        localStorage.startup_mask_bn4 = e.target.result;
+        //localStorage.startup_mask_bn4 = e.target.result;
+        new indexdb_store.IndexDBStore("bluenoise_mask").write("data", e.target.result);
         _appstate.bluenoise.load_mask(e.target.result);
       };
       
@@ -576,6 +578,225 @@ define([
       this.reset();
       window.redraw_all();
     }
+    
+    on_tick() {
+      this.gui.on_tick();
+      this.gui2.on_tick();
+    }
+    
+    makeGUI() {
+      //these bind functions bind constants from const.js.
+      //they typically take the constant name (converted to lowercase)
+      //as their first argument
+      var gui2 = this.gui2 = new ui.UI("ui2_bn6", window);
+      var gui = this.gui = new ui.UI("ui1_bn6", window);
+      
+      window.gui = gui;
+      
+      gui.button('load_image', "Load Image", function() {
+        var input = document.getElementById("input");
+        input.click();
+      });
+      
+      gui.button('load_mask', "Load Mask", function() {
+        var input = document.getElementById("input2");
+        input.click();
+      });
+      
+      gui.button("reset", "Reset", function() {
+        colors.gen_colors();
+        _appstate.init();
+        _appstate.reset();
+        
+        redraw_all();
+      });
+      
+      gui.button("step", "Generate Points", function() {
+        _appstate.bluenoise.step();
+        redraw_all();
+      });
+      
+      gui.button("relax", "Relax", () => {
+        _appstate.bluenoise.relax();
+        redraw_all();
+      });
+      
+      gui.button("relax_loop", "Toggle Relax Loop", () => {
+        if (_appstate.relaxtimer !== undefined) {
+          console.log("stopping timer");
+          
+          window.clearInterval(_appstate.relaxtimer);
+          _appstate.relaxtimer = undefined;
+          
+          return;
+        }
+        
+        _appstate.relaxtimer = window.setInterval(() => {
+          _appstate.bluenoise.relax();
+          redraw_all();
+        }, 100);
+      });
+
+      var panel = gui.panel("Settings");
+      
+      panel.slider("DIMEN", "Density", 32, 1, 2048, 1, true);
+      panel.slider("STEPS", "Points Per Step", 32, 1, 50000, 1, true);
+      panel.slider("DRAW_RMUL", "Point Size", 1.0, 0.1, 8.0, 0.01, false, true);
+      panel.slider("RAND_FAC", "Added Random", 0.0, 0.0, 3.0, 0.005, false, true);
+      
+      panel.slider("RELAX_SPEED", "Relax Speed", 1.0, 0.001, 8.0, 0.001, true);
+
+      panel.check("SHOW_KDTREE", "Show kdtree");
+      panel.check('SCALE_POINTS', 'Radius Scale');
+      panel.check('TRI_MODE', "Triangle Mode");
+      
+      panel.slider("DITHER_RAND_FAC", "Dither Random", 0.0, 0.0, 3.0,0.005, false);
+      panel.check("SHARPEN", "Sharpen");
+      panel.slider("SHARPNESS", "Sharpness", 0.5, 0.0, 3.5, 0.001, false);
+      panel.check('SHARPEN_LUMINENCE', 'Luminence Only');
+      panel.check('USE_LAB', 'Use Lab Space');
+      panel.open();
+      
+      panel = gui.panel("Save Tool")
+      panel.button("save_img", "Save Image", () => {
+        _appstate.renderImage().then((canvas) => {
+          canvas.toBlob((blob) => {
+            let url = URL.createObjectURL(blob);
+            
+            window.open(url);
+          });
+        });
+      });
+      
+      panel.slider("RENDERED_IMAGE_SIZE", "Rendered Image Size", 1024, 1, 4096, 1, true);
+
+      panel = panel.panel("Canvas Position");
+      panel.slider("SCALE", "Scale", 1.0, 0.05, 5.0, 0.01, false, true);
+      panel.slider("PANX", "Pan X", 0.0, -1.5, 1.5, 0.01, false, true);
+      panel.slider("PANY", "Pan Y", 0.0, -1.5, 1.5, 0.01, false, true);
+      
+      panel = gui2.panel("More Options");
+      var panel2 = panel.panel("General");
+      
+      var panel3 = panel2.panel("Tone Curve");
+      window.TONE_CURVE = panel3.curve("TONE_CURVE", "Tone Curve", cconst.DefaultCurves.TONE_CURVE).curve;
+      
+      panel2.check("DITHER_COLORS", "Dither Colors");
+      panel2.check("SHOW_COLORS", "Show Colors");
+      panel2.check("ADAPTIVE_COLOR_DENSITY", "Denser For Color")
+      panel2.check("HEXAGON_MODE", "Hexagonish");
+      panel2.check("GRID_MODE", "Be More Grid Like");
+      
+      var panel3 = panel2.panel("Simple Raster");
+      panel3.check("RASTER_IMAGE", "Enable");
+      
+      let rastermode = "";
+      for (let k in RASTER_MODES) {
+        if (RASTER_MODES[k] == RASTER_MODE) {
+          rastermode = k;
+          break;
+        }
+      }
+      
+      console.log("SDFSDFSDF", rastermode);
+      
+      panel3.listenum("RASTER_MODE", "Mode", RASTER_MODES, rastermode);
+      
+      panel2.check("MAKE_NOISE", "Make Noise (to test relax)");
+      panel2.check("SMALL_MASK", "Small Mask Mode");
+      panel2.check("XLARGE_MASK", "Extra Large Mask Mode");
+      panel2.check("SPECIAL_OFFSETS", "Use Encoded Offsets");
+      
+      panel2.check("USE_MERSENNE", "Psuedo Random");
+      panel2.check("BLACK_BG", "Black BG");
+      
+      panel2 = panel.panel("Palette");
+      panel2.slider("PAL_COLORS", "Number of Colors (Times 9)", 4, 1, 32, 1, true);
+      panel2.check("ALLOW_PURPLE", "Include Purple In Palette");
+      panel2.check("SIMPLE_PALETTE", "Simple Palette");
+      panel2.check("BG_PALETTE", "Black/white only");
+      
+      var load_value = 'built-in';
+      
+      panel2 = panel.panel("Blue Noise Mask");
+      panel2.listenum(undefined, 'Mask', {
+        'Built In Smooth'          : 'built-in-smooth',
+        'Built In'                 : 'built-in',
+        'Large 2'                  : 'mask_large_2.png',
+        'Large 2 (smoothed)'       : 'mask_large_2_smoothed.png',
+        'Large 1 (only 16 levels)' : 'mask_large.png',
+        'Small 1 (only 16 levels)' : 'mask.png',
+        'Weighted Sample Removal'  : 'weighted_sample_removal_mask_1.png',
+      }, 'built-in', function(value) {
+        load_value = value;
+        console.log("yay, value", value);
+      });
+      
+      panel2.button('load_mask', 'Load', function() {
+        var value = load_value;
+        
+        if (value == 'built-in-smooth') {
+          console.log("Reloading built-in blue noise mask. . .");
+          
+          //localStorage.startup_mask_bn4 = blue_mask_file;
+          new indexdb_store.IndexDBStore("bluenoise_mask").write("data", smoothmask_file);
+
+          _appstate.bluenoise.load_mask(smoothmask_file);
+        } else if (value == 'built-in') {
+          console.log("Reloading built-in blue noise mask. . .");
+          //localStorage.startup_mask_bn4 = blue_mask_file;
+          new indexdb_store.IndexDBStore("bluenoise_mask").write("data", blue_mask_file);
+
+          _appstate.bluenoise.load_mask(blue_mask_file);
+        } else {
+          var path = "examples/"+value;
+          var base = document.location.pathname;
+          
+          while (base.length > 0 && !base.endsWith("/")) {
+            base = base.slice(0, base.length-1);
+          }
+          
+          if (base.length != 0) {
+            base = base.slice(1, base.length);
+          }
+          
+          path = base + path;
+          var promise = util.fetch_file(path, true);
+          
+          promise.then(function(data) {
+            //turn into data url
+            console.log("DATA LEN1", data.byteLength);
+            data = new Uint8Array(data);
+            
+            var s = "";
+            for (var i=0; i<data.length; i++) {
+              s += String.fromCharCode(data[i]);
+            }
+            
+            data = btoa(s);
+            console.log(data.slice(0, 100));
+            
+            data = "data:image/png;base64," + data;
+            //localStorage.startup_mask_bn4 = data;
+            new indexdb_store.IndexDBStore("bluenoise_mask").write("data", data);
+            _appstate.bluenoise.load_mask(data);
+          });
+        }
+      });
+      
+      panel2 = panel.panel("Misc")
+      panel2.check("DRAW_TRANSPARENT", "Accumulation Mode");
+      panel2.slider("ACCUM_ALPHA", "Accum Alpha", 1.0, 0.001, 1.0, 0.001, false, true);
+      panel2.check("CORRECT_FOR_SPACING", "Correct_For_Spacing");
+      panel2.check("LOW_RES_CUBE", "Low Res Cube");
+      
+      //.slider will have loaded store setting from localStorage,
+      //if it exists
+      colors.gen_colors();
+      
+      gui.load();
+      gui2.load();
+    }
   };
  
   window.addEventListener("keydown", function(e) {
@@ -613,209 +834,12 @@ define([
       redraw_all();
     }
     
-    //these bind functions bind constants from const.js.
-    //they typically take the constant name (converted to lowercase)
-    //as their first argument
-    var gui2 = new ui.UI("ui2_bn6", window);
-    var gui = new ui.UI("ui1_bn6", window);
-    
-    window.gui = gui;
-    
-    gui.button('load_image', "Load Image", function() {
-      var input = document.getElementById("input");
-      input.click();
-    });
-    
-    gui.button('load_mask', "Load Mask", function() {
-      var input = document.getElementById("input2");
-      input.click();
-    });
-    
-    gui.button("reset", "Reset", function() {
-      colors.gen_colors();
-      _appstate.init();
-      _appstate.reset();
-      
-      redraw_all();
-    });
-    
-    gui.button("step", "Generate Points", function() {
-      _appstate.bluenoise.step();
-      redraw_all();
-    });
-    
-    gui.button("relax", "Relax", () => {
-      _appstate.bluenoise.relax();
-      redraw_all();
-    });
-    
-    gui.button("relax_loop", "Toggle Relax Loop", () => {
-      if (_appstate.relaxtimer !== undefined) {
-        console.log("stopping timer");
-        
-        window.clearInterval(_appstate.relaxtimer);
-        _appstate.relaxtimer = undefined;
-        
-        return;
-      }
-      
-      _appstate.relaxtimer = window.setInterval(() => {
-        _appstate.bluenoise.relax();
-        redraw_all();
-      }, 100);
-    });
-
-    var panel = gui.panel("Settings");
-    
-    panel.slider("DIMEN", "Density", 32, 1, 2048, 1, true);
-    panel.slider("STEPS", "Points Per Step", 32, 1, 50000, 1, true);
-    panel.slider("DRAW_RMUL", "Point Size", 1.0, 0.1, 8.0, 0.01, false, true);
-    panel.slider("RAND_FAC", "Added Random", 0.0, 0.0, 3.0, 0.005, false, true);
-    
-    panel.slider("RELAX_SPEED", "Relax Speed", 1.0, 0.001, 8.0, 0.001, true);
-
-    panel.check("SHOW_KDTREE", "Show kdtree");
-    panel.check('SCALE_POINTS', 'Radius Scale');
-    panel.check('TRI_MODE', "Triangle Mode");
-    
-    panel.slider("DITHER_RAND_FAC", "Dither Random", 0.0, 0.0, 3.0,0.005, false);
-    panel.check("SHARPEN", "Sharpen");
-    panel.slider("SHARPNESS", "Sharpness", 0.5, 0.0, 3.5, 0.001, false);
-    panel.check('SHARPEN_LUMINENCE', 'Luminence Only');
-    panel.check('USE_LAB', 'Use Lab Space');
-    panel.open();
-    
-    panel = gui.panel("Save Tool")
-    panel.button("save_img", "Save Image", () => {
-      _appstate.renderImage().then((canvas) => {
-        canvas.toBlob((blob) => {
-          let url = URL.createObjectURL(blob);
-          
-          window.open(url);
-        });
-      });
-    });
-    
-    panel.slider("RENDERED_IMAGE_SIZE", "Rendered Image Size", 1024, 1, 4096, 1, true);
-
-    panel = panel.panel("Canvas Position");
-    panel.slider("SCALE", "Scale", 1.0, 0.05, 5.0, 0.01, false, true);
-    panel.slider("PANX", "Pan X", 0.0, -1.5, 1.5, 0.01, false, true);
-    panel.slider("PANY", "Pan Y", 0.0, -1.5, 1.5, 0.01, false, true);
-    
-    panel = gui2.panel("More Options");
-    var panel2 = panel.panel("General");
-    
-    var panel3 = panel2.panel("Tone Curve");
-    window.TONE_CURVE = panel3.curve("TONE_CURVE", "Tone Curve", cconst.DefaultCurves.TONE_CURVE).curve;
-    
-    panel2.check("DITHER_COLORS", "Dither Colors");
-    panel2.check("SHOW_COLORS", "Show Colors");
-    panel2.check("ADAPTIVE_COLOR_DENSITY", "Denser For Color")
-    panel2.check("HEXAGON_MODE", "Hexagonish");
-    panel2.check("GRID_MODE", "Be More Grid Like");
-    
-    var panel3 = panel2.panel("Simple Raster");
-    panel3.check("RASTER_IMAGE", "Enable");
-    
-    let rastermode = "";
-    for (let k in RASTER_MODES) {
-      if (RASTER_MODES[k] == RASTER_MODE) {
-        rastermode = k;
-        break;
-      }
-    }
-    
-    console.log("SDFSDFSDF", rastermode);
-    
-    panel3.listenum("RASTER_MODE", "Mode", RASTER_MODES, rastermode);
-    
-    panel2.check("MAKE_NOISE", "Make Noise (to test relax)");
-    panel2.check("SMALL_MASK", "Small Mask Mode");
-    panel2.check("XLARGE_MASK", "Extra Large Mask Mode");
-    panel2.check("SPECIAL_OFFSETS", "Use Encoded Offsets");
-    
-    panel2.check("USE_MERSENNE", "Psuedo Random");
-    panel2.check("BLACK_BG", "Black BG");
-    
-    panel2 = panel.panel("Palette");
-    panel2.slider("PAL_COLORS", "Number of Colors (Times 9)", 4, 1, 32, 1, true);
-    panel2.check("ALLOW_PURPLE", "Include Purple In Palette");
-    panel2.check("SIMPLE_PALETTE", "Simple Palette");
-    panel2.check("BG_PALETTE", "Black/white only");
-    
-    var load_value = 'built-in';
-    
-    panel2 = panel.panel("Blue Noise Mask");
-    panel2.listenum(undefined, 'Mask', {
-      'Built In'                 : 'built-in',
-      'Large 2'                  : 'mask_large_2.png',
-      'Large 2 (smoothed)'       : 'mask_large_2_smoothed.png',
-      'Large 1 (only 16 levels)' : 'mask_large.png',
-      'Small 1 (only 16 levels)' : 'mask.png',
-      'Weighted Sample Removal'  : 'weighted_sample_removal_mask_1.png',
-    }, 'built-in', function(value) {
-      load_value = value;
-      console.log("yay, value", value);
-    });
-    
-    panel2.button('load_mask', 'Load', function() {
-      var value = load_value;
-      
-      if (value == 'built-in') {
-        console.log("Reloading built-in blue noise mask. . .");
-        localStorage.startup_mask_bn4 = blue_mask_file;
-        _appstate.bluenoise.load_mask(blue_mask_file);
-      } else {
-        var path = "examples/"+value;
-        var base = document.location.pathname;
-        
-        while (base.length > 0 && !base.endsWith("/")) {
-          base = base.slice(0, base.length-1);
-        }
-        
-        if (base.length != 0) {
-          base = base.slice(1, base.length);
-        }
-        
-        path = base + path;
-        var promise = util.fetch_file(path, true);
-        
-        promise.then(function(data) {
-          //turn into data url
-          console.log("DATA LEN1", data.byteLength);
-          data = new Uint8Array(data);
-          
-          var s = "";
-          for (var i=0; i<data.length; i++) {
-            s += String.fromCharCode(data[i]);
-          }
-          
-          data = btoa(s);
-          console.log(data.slice(0, 100));
-          
-          data = "data:image/png;base64," + data;
-          localStorage.startup_mask_bn4 = data;
-          _appstate.bluenoise.load_mask(data);
-        });
-      }
-    });
-    
-    panel2 = panel.panel("Misc")
-    panel2.check("DRAW_TRANSPARENT", "Accumulation Mode");
-    panel2.slider("ACCUM_ALPHA", "Accum Alpha", 1.0, 0.001, 1.0, 0.001, false, true);
-    panel2.check("CORRECT_FOR_SPACING", "Correct_For_Spacing");
-    panel2.check("LOW_RES_CUBE", "Low Res Cube");
-    
-    //.slider will have loaded store setting from localStorage,
-    //if it exists
-    colors.gen_colors();
-    
-    
-    gui.load();
-    gui2.load();
-    
+    _appstate.makeGUI();
     _appstate.init();
+    
+    _appstate.tick_timer = window.setInterval(() => {
+      _appstate.on_tick();
+    }, 400);
     
     document.getElementById("input").addEventListener("change", function(e) {
       console.log("file!", e, this.files);
