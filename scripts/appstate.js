@@ -271,12 +271,25 @@ define([
       var this2 = this;
       
       reader.onload = function(e) {
+        let buf = e.target.result;
+        let str = "";
+        let view = new Uint8Array(buf);
+
+        for (let i=0; i<view.length; i++) {
+            str += String.fromCharCode(view[i]);
+        }
+
+        if (!str.startsWith("SMOOTHMASK")) {
+            str = btoa(str);
+            str = "data:image/png;base64," + str;
+        }
+        
         //localStorage.startup_mask_bn4 = e.target.result;
-        new indexdb_store.IndexDBStore("bluenoise_mask").write("data", e.target.result);
-        _appstate.bluenoise.load_mask(e.target.result);
+        new indexdb_store.IndexDBStore("bluenoise_mask").write("data", str);
+        _appstate.bluenoise.load_mask(str);
       };
       
-      reader.readAsDataURL(files[0]);
+      reader.readAsArrayBuffer(files[0]);
     }
     
     on_image_read(img, cb, thisvar) {
@@ -657,8 +670,8 @@ define([
       panel.check('USE_LAB', 'Use Lab Space');
       panel.open();
       
-      panel = gui.panel("Save Tool")
-      panel.button("save_img", "Save Image", () => {
+      var panel2 = gui.panel("Save Tool")
+      panel2.button("save_img", "Save Image", () => {
         _appstate.renderImage().then((canvas) => {
           canvas.toBlob((blob) => {
             let url = URL.createObjectURL(blob);
@@ -668,12 +681,12 @@ define([
         });
       });
       
-      panel.slider("RENDERED_IMAGE_SIZE", "Rendered Image Size", 1024, 1, 4096, 1, true);
+      panel2.slider("RENDERED_IMAGE_SIZE", "Rendered Image Size", 1024, 1, 4096, 1, true);
 
-      panel = panel.panel("Canvas Position");
-      panel.slider("SCALE", "Scale", 1.0, 0.05, 5.0, 0.01, false, true);
-      panel.slider("PANX", "Pan X", 0.0, -1.5, 1.5, 0.01, false, true);
-      panel.slider("PANY", "Pan Y", 0.0, -1.5, 1.5, 0.01, false, true);
+      panel2 = gui.panel("Canvas Position");
+      panel2.slider("SCALE", "Scale", 1.0, 0.05, 5.0, 0.01, false, true);
+      panel2.slider("PANX", "Pan X", 0.0, -1.5, 1.5, 0.01, false, true);
+      panel2.slider("PANY", "Pan Y", 0.0, -1.5, 1.5, 0.01, false, true);
       
       panel = gui2.panel("More Options");
       var panel2 = panel.panel("General");
@@ -776,7 +789,9 @@ define([
             data = btoa(s);
             console.log(data.slice(0, 100));
             
-            data = "data:image/png;base64," + data;
+            if (!data.startsWith("SMOOTHMASK"))
+                data = "data:image/png;base64," + data;
+            
             //localStorage.startup_mask_bn4 = data;
             new indexdb_store.IndexDBStore("bluenoise_mask").write("data", data);
             _appstate.bluenoise.load_mask(data);

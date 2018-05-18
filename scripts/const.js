@@ -6,7 +6,7 @@
 //pox/poy are original positions at time of creation
 //poldx/poldy are used by relax() to calculate velocity
 var PX=0, PY=1, PRADIUS=2, PINTEN=3, PID=4, PLVL=5;
-var POX=6, POY=7, PDX=8, PDY=9, POLDX=10, POLDY=11, PTOT=12;
+var POX=6, POY=7, PDX=8, PDY=9, POLDX=10, POLDY=11, PBAD=12, PTOT=13;
 
 var PRADIUS2 = PINTEN;
 

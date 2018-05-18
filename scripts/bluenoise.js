@@ -287,6 +287,7 @@ define([
 
       const sqrt3 = Math.sqrt(3);
       let size2 = Math.ceil(size / this.smask.blocksize);
+      let size3 = size / this.smask.blocksize;
 
       steps = Math.ceil(steps / this.smask.blocksize / this.smask.blocksize);
 
@@ -305,11 +306,14 @@ define([
                 let x = Math.fract(co[0]), y = Math.fract(co[1]);
                 x = co[0], y = co[1];
 
-                x = x / size2 + ix / size2;
-                y = y / size2 + iy / size2;
+                x = x / size3 + ix / size3;
+                y = y / size3 + iy / size3;
                 
                 x = x*2.0 - 1.0;
                 y = y*2.0 - 1.0;
+                
+                if (x < -1 || y < -1 || x >= 1 || y >= 1)
+                  continue;
                 
                 var clr = this.sampler(x, y, size, 1.0);
 
@@ -360,8 +364,8 @@ define([
                 //x = Math.fract(p.offsets[ti]);
                 //y = Math.fract(p.offsets[ti+1]);
 
-                x = x / size2 + ix / size2;
-                y = y / size2 + iy / size2;
+                x = x / size3 + ix / size3;
+                y = y / size3 + iy / size3;
                 
                 x = x*2.0 - 1.0;
                 y = y*2.0 - 1.0;
@@ -1156,15 +1160,13 @@ define([
       return kd;//*/
     },
     
-    function calc_radii(use_orig_cos) {
+    function calc_radii_old(use_orig_cos) {
       var ps = this.points;
       var kd = this.calc_kdtree(true);
       
       var GIDX = 0, GTOT = 1;
       
       var size = this.dimen;
-      var grid = new Float64Array(size*size*GTOT);
-      grid.fill(-1, 0, grid.length);
 
       for (var i=0; i<ps.length; i += PTOT) {
         //ps[i+PRADIUS2] = -1;
@@ -1178,11 +1180,6 @@ define([
         } else {
           x = ps[i], y = ps[i+1];
         }
-        
-        var ix = ~~((x*0.5+0.5)*size+0.0001), iy = ~~((y*0.5+0.5)*size+0.0001);
-        
-        var idx = (iy*size+ix)*GTOT;
-        grid[idx] = i/PTOT;
       }
       
       var minrad = 1 / (this.dimen*Math.sqrt(2));
@@ -1335,7 +1332,7 @@ define([
       console.log("total tris:", tris.length/3);
     },
     
-    function relax2() {
+    function calc_radii() {
       console.log("updating radii");
       //this.calc_radii(false);
 
@@ -1344,14 +1341,8 @@ define([
       
       let minrad = 2.5 / (Math.sqrt(2)*this.dimen);
       let maxrad = minrad*6;
-      
-      let sumdx=0, sumdy=0, sumw=0, x1=0, y1=0, r1=0, pi1, searchr;
-      let tree = this.calc_kdtree();
-      
-      let p = [0, 0, 0];
-      const searchfac = 4.0;
-      const sqrt3 = Math.sqrt(3.0);
-      
+      let sqrt3 = Math.sqrt(3);
+
       /*
       console.log("building kdtree. . .");
       for (let pi=0; pi<ps.length; pi += PTOT) {
@@ -1362,7 +1353,16 @@ define([
       for (var i=0; i<ps.length; i += PTOT) {
         let clr = this.sampler(ps[i], ps[i+1], this.gridsize, 1.0);
         
-        if (clr[0] < 0) { //sampler requested we discard the point
+        if (clr[0] < 0) { //sampler requested we discard the point.  try original location
+          clr = this.sampler(ps[i+POX], ps[i+POY], this.gridsize, 1.0);
+          ps[i+PBAD] = 1;
+        } else {
+          ps[i+PBAD] = 0;
+        }
+
+        if (clr[0] < 0) { //point is still bad?
+          ps[i+PRADIUS2] = minrad*0.5;
+          ps[i+PBAD] = 1;
           continue;
         }
         
@@ -1385,6 +1385,23 @@ define([
         
         ps[i+PRADIUS2] = r*0.5;//*0.75
       }//*/
+    },
+    
+    function relax2() {
+      let size = this.dimen;
+      let ps = this.points;
+      
+      let minrad = 2.5 / (Math.sqrt(2)*this.dimen);
+      let maxrad = minrad*6;
+      
+      let sumdx=0, sumdy=0, sumw=0, x1=0, y1=0, r1=0, pi1, searchr;
+      let tree = this.calc_kdtree();
+      
+      let p = [0, 0, 0];
+      const searchfac = 6.0;
+      const sqrt3 = Math.sqrt(3.0);
+
+      this.calc_radii();
       
       let callback = (pi2) => {
         let x2 = ps[pi2], y2 = ps[pi2+1], r2 = ps[pi2+PRADIUS2];
@@ -1403,9 +1420,18 @@ define([
         dis = Math.sqrt(dis);
         let w = 1.0 - dis / searchr;
         //w = w*w*(3.0 - 2.0*w);
-        w = Math.pow(w, 6.0);
+        w = Math.pow(w, 5.0);
         
-        w *= r2*r2//r2/r1;
+        dx /= dis;
+        dy /= dis;
+
+        dis = dis - Math.max(r1, r2)*3.6; //Math.max(r1, r2);
+        dis = -dis;
+        dx *= dis;
+        dy *= dis;
+
+        //w *= r2*r2
+
         //w *= r2/r1;
         
         //w *= r2/maxrad;
@@ -1419,6 +1445,7 @@ define([
       for (pi1=0; pi1<ps.length; pi1 += PTOT) {
         x1 = ps[pi1], y1 = ps[pi1+1], r1 = ps[pi1+PRADIUS2];
         
+        //r1 = minrad*0.5;
         searchr = r1*searchfac;
         sumdx = sumdy = sumw = 0.0;
         
@@ -1440,11 +1467,27 @@ define([
         sumdx /= sumw;
         sumdy /= sumw;
         
-        let fac = RELAX_SPEED*0.0625;
-        
+        let fac = RELAX_SPEED*0.0625*3.0;
+        if (ps[pi1+PBAD] > 0) {
+          fac *= 0.15;
+        }
+                
+        let startx = ps[pi1], starty = ps[pi1+1];
+
         ps[pi1] += sumdx*fac;
         ps[pi1+1] += sumdy*fac;
         
+        //if on a transparent (undefined) part of the image, pull towards original location
+        if (ps[pi1+PBAD] > 0) {
+          let dx = ps[pi1+POX] - ps[pi1];
+          let dy = ps[pi1+POY] - ps[pi1+1];
+          
+          let fac2 = RELAX_SPEED*0.1;
+
+          ps[pi1] += dx*fac2;
+          ps[pi1+1] += dy*fac2;
+        }
+
         ps[pi1] = Math.min(Math.max(ps[pi1], -1.0), 1.0);
         ps[pi1+1] = Math.min(Math.max(ps[pi1+1], -1.0), 1.0);
       }
@@ -1454,6 +1497,7 @@ define([
         this.del();
       }
       
+      this.calc_radii();
       console.log("done");
     },
     

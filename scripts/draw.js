@@ -33,16 +33,14 @@ define([
     },
     
     function scale_point_r(r) {
-      var maxr = 7 / (Math.sqrt(2)*this.bluenoise.dimen);
+      var maxr = 15 / (Math.sqrt(2)*this.bluenoise.dimen);
+      let minr = 4.0 / (Math.sqrt(2)*this.bluenoise.dimen);
       
-      var rad = r / maxr;
-      rad = Math.min(Math.max(rad, 0.0), 1.0);
-      rad = 1.0 - rad;
-      //rad = 1.0 - Math.sqrt(rad+0.0001);
-      
-      rad *= maxr;
-      
-      return rad;
+      r = 1.0 / (1 + 9.0*r/maxr);
+      r *= minr*0.9;
+      //r = Math.min(Math.max(maxr-r, 0.0001), minr)*0.5;
+
+      return Math.max(r, minr*0.01);
     },
     
     function tri_mode_draw(g) {
