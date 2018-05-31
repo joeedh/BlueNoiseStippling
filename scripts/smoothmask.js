@@ -25,7 +25,7 @@ define([
     [CurveTypes.LINEAR_NONUNIFORM] : NTOT  
   };
 
-  let VERSION = 0.001;
+  let VERSION = 0.003;
   let eval_rets = new util.cachering(() => [0, 0], 64);
   
   class BinaryEncoder extends Array {
@@ -130,7 +130,9 @@ define([
   }
   
   let MaskPoint = exports.MaskPoint = class MaskPoint {
-    constructor(id, gen, r, curvetype) {
+    constructor(startx, starty, id, gen, r, curvetype) {
+      this.startx = startx;
+      this.starty = starty;
       this.id = id;
       this.gen = gen;
       this.r = r;
@@ -141,6 +143,11 @@ define([
     }
     
     fromBinary(decoder) {
+      if (decoder.version >= 0.003) {
+        this.startx = decoder.float32();
+        this.starty = decoder.float32();
+      }
+      
       this.curvetype = decoder.int32();
       this.id = decoder.int32();
       this.gen = decoder.float64();
@@ -160,7 +167,21 @@ define([
         this.offsets.push(decoder.float32());
       }
       //*/
-
+      
+      if (decoder.version < 0.003) {
+        this.startx = this.starty = 0.0;
+        let ftot = this.fieldlen, totpoint = this.offsets.length / ftot;
+        
+        for (let i=0; i<this.offsets.length; i += ftot) {
+          this.startx += this.offsets[i], this.starty += this.offsets[i+1];
+        }
+        
+        if (totpoint > 0) {
+          this.startx /= totpoint;
+          this.starty /= totpoint;
+        }
+      }
+      
       return this;
     }
     
@@ -192,6 +213,15 @@ define([
       return this;
     }
     
+    encode32(encoder) {
+      encoder.int32(this.offsets.length);
+      encoder.int32(OffsetsType.FLOAT32);
+
+      for (let f of this.offsets) {
+        encoder.float32(f);
+      }
+    }
+    
     decode16(decoder) {
       let len = decoder.int32();
       let datatype = decoder.int32();
@@ -205,7 +235,7 @@ define([
 
         return;
       }
-      
+
       let min = this.min = decoder.float32();
       let max = this.max = decoder.float32();
       
@@ -223,6 +253,9 @@ define([
     }
     
     toBinary(encoder) {
+      encoder.float32(this.startx);
+      encoder.float32(this.starty);
+      
       encoder.int32(this.curvetype); //maintain 8-byte alignment for floats
       encoder.int32(this.id);
 
@@ -242,6 +275,8 @@ define([
     
     toJSON() {
       return {
+        startx    : this.startx,
+        starty    : this.starty,
         curvetype : this.curvetype,
         id        : this.id,
         gen       : this.gen,
@@ -436,10 +471,34 @@ define([
     }
   };
   
+  
   exports.PointSet = class PointSet {
     constructor(blocksize) {
       this.blocksize = blocksize;
       this.points = [];
+      
+      //evenly spaced piecewise-linear curve to get linear toning
+      this.inverse_tone_curve = [0.0, 1.0];
+    }
+    
+    setInverseToneCurve(curve) {
+      this.inverse_tone_curve = curve.slice(0, curve.length);
+    }
+    
+    evalInverseTone(s) {
+      s = Math.min(Math.max(s, 0.0), 0.9999999);
+      let si = Math.floor(s*this.inverse_tone_curve.length);
+      
+      let curve = this.inverse_tone_curve;
+      if (si < curve.length-1) {
+        let t = si / this.inverse_tone_curve.length;
+        
+        t = (s - t) * this.inverse_tone_curve.length;
+        
+        return curve[si] + (curve[si+1] - curve[si]) * t;
+      } else {
+        return curve[si];
+      }
     }
     
     fromBinary(buf) {
@@ -452,7 +511,7 @@ define([
       
       let decoder = new BinaryDecoder(bytes.buffer);
       
-      let version = decoder.float64();
+      let version = decoder.version = decoder.float64();
       
       let len = decoder.int32();
       this.blocksize = decoder.int32();
@@ -465,6 +524,24 @@ define([
         this.points.push(p);
       }
 
+      if (version > 0.001) {
+        let totcurve = decoder.int32();
+        decoder.int32(); //drop padding bytes
+        
+        if (totcurve <= 0) {
+          console.warn("Warning: corrupted inverse toning curve data");
+          return this;
+        }
+        
+        let curve = this.inverse_tone_curve = [];
+        
+        for (let i=0; i<totcurve; i++) {
+          let f = decoder.uint16() / 65535;
+          
+          curve.push(f);
+        }
+      }
+      
       return this;
     }
 
@@ -478,6 +555,17 @@ define([
       
       for (let p of this.points) {
         p.toBinary(encoder);
+      }
+      
+      let curve = this.inverse_tone_curve;
+
+      encoder.int32(curve.length);
+      encoder.int32(0.0); //padding 
+      
+      for (let i=0; i<curve.length; i++) {
+        let f = ~~(Math.min(Math.max(curve[i], 0.0), 1.0) * 65535);
+        
+        encoder.uint16(f);
       }
       
       return encoder;

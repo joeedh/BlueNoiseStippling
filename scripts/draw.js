@@ -319,6 +319,95 @@ define([
       util.seed.pop();
     },
     
+    function draw_sticks(g) {
+      var points = this.bluenoise.points, size = this.bluenoise.gridsize;
+      
+      g.save();
+      g.lineWidth = g.lineWidth / this.bluenoise.gridsize * STICK_WIDTH * 0.5;
+      
+      for (var si=0; si<colors.colors.length; si++) {
+        var c = colors.colors[si];
+        
+        var r  = ~~(c[0]*255);
+        var g1 = ~~(c[1]*255);
+        var b  = ~~(c[2]*255);
+        var alpha = 1.0;
+        
+        if (DRAW_TRANSPARENT) {
+          alpha = ACCUM_ALPHA;
+        }
+        
+        if (!SHOW_COLORS) {
+          r=g1=b=1.0;
+        }
+        
+        g.strokeStyle = "rgba(" + r + "," + g1 + "," + b + ","+alpha+")";
+        
+        g.beginPath();
+        
+        util.seed.push(0);
+        var szfac = 1.0 / this.bluenoise.gridsize;
+        
+        for (var i=0; i<points.length; i += PTOT) {
+          var colorid = points[i+PID];
+          
+          if (colorid != si) {
+            continue;
+          }
+          
+          var x = points[i];
+          var y = points[i+1];
+          var radius = points[i+PRADIUS];
+          let th = points[i+PTH];
+          var inten = points[i+PINTEN];
+          
+          var ix = ~~((x*0.5+0.5)*size);
+          
+          if (HEXAGON_MODE && ix%2==0) {
+            y -= 0.5/size;
+          }
+          
+          //increase randomness in dark areas
+          x += (util.random()-0.5)*RAND_FAC*(2.0 - inten)*szfac;
+          y += (util.random()-0.5)*RAND_FAC*(2.0 - inten)*szfac;
+
+          var w = radius/2.0;
+          if (SCALE_POINTS) {
+            w = this.scale_point_r(points[i+PRADIUS2])*0.5;
+          }
+          
+          if (DRAW_TRANSPARENT) {
+            g.beginPath()
+          }
+          
+          
+          let thfac = 1//(1.0 - inten)**0.15;
+          
+          let dx = Math.sin(th + STICK_ROT + Math.PI*0.5)*szfac*thfac*STICK_LENGTH;
+          let dy = Math.cos(th + STICK_ROT + Math.PI*0.5)*szfac*thfac*STICK_LENGTH;
+          
+          g.moveTo(x-dx, y-dy);
+          g.lineTo(x+dx, y+dy);
+          
+          //g.arc(x, y, w*DRAW_RMUL, 0, Math.PI*2);
+          
+          //var w2 = w*DRAW_RMUL;
+          //g.rect(x-w2*0.5, y-w2*0.5, w2, w2);
+          
+          if (DRAW_TRANSPARENT) {
+            g.stroke();
+          }
+        }      
+        
+        if (!DRAW_TRANSPARENT) {
+          g.stroke();
+        }
+      }
+      
+      g.restore();
+      util.seed.pop();
+    },
+    
     function draw(g) {
       g.save();
       
@@ -332,6 +421,9 @@ define([
       
       if (RASTER_IMAGE && this.raster_image != undefined) {
         g.putImageData(this.raster_image, 20, 20);
+      } else if (DRAW_STICKS) {
+        this.draw_transform(g);
+        this.draw_sticks(g);
       } else if (TRI_MODE) {
         this.draw_transform(g);
         this.tri_mode_draw(g);

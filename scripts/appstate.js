@@ -200,6 +200,8 @@ define([
       
       if (RASTER_IMAGE) {
         g.putImageData(_appstate.outimage, 0, 0);
+      } else if (DRAW_STICKS) {
+        _appstate.drawer.draw_sticks(g);
       } else if (TRI_MODE) {
         _appstate.drawer.tri_mode_draw(g);
       } else {
@@ -660,7 +662,18 @@ define([
       panel.slider("RELAX_SPEED", "Relax Speed", 1.0, 0.001, 8.0, 0.001, true);
 
       panel.check("SHOW_KDTREE", "Show kdtree");
-      panel.check('SCALE_POINTS', 'Radius Scale');
+      panel.check("SCALE_POINTS", "Radius Scale");
+      
+      let apanel = panel.panel("Stick Mode")
+      apanel.check("ANISOTROPY", "Flow Relaxation");
+      apanel.check("DRAW_STICKS", "Draw Sticks");
+      apanel.slider("STICK_ROT", "StickRot", 0.0, -Math.PI, Math.PI, 0.0001, false, true);
+      apanel.slider("STICK_WIDTH", "StickWidth", 0.0, 0.0001, 4.0, 0.0001, false, true);
+      apanel.slider("STICK_LENGTH", "StickLength", 0.0, 0.0001, 6.0, 0.0001, false, true);
+      apanel.slider("ANIS_W1", "W1", 0.0, -Math.PI, Math.PI, 0.0001, false, false);
+      apanel.slider("ANIS_W2", "W2", 0.0, -Math.PI, Math.PI, 0.0001, false, false);
+      apanel.close();
+      
       panel.check('TRI_MODE', "Triangle Mode");
       
       panel.slider("DITHER_RAND_FAC", "Dither Random", 0.0, 0.0, 3.0,0.005, false);
@@ -698,7 +711,7 @@ define([
       panel2.check("SHOW_COLORS", "Show Colors");
       panel2.check("ADAPTIVE_COLOR_DENSITY", "Denser For Color")
       panel2.check("HEXAGON_MODE", "Hexagonish");
-      panel2.check("GRID_MODE", "Be More Grid Like");
+      panel2.check("GRID_MODE", "Grid Like");
       
       var panel3 = panel2.panel("Simple Raster");
       panel3.check("RASTER_IMAGE", "Enable");

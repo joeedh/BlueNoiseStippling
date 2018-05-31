@@ -6,9 +6,8 @@
 //pox/poy are original positions at time of creation
 //poldx/poldy are used by relax() to calculate velocity
 var PX=0, PY=1, PRADIUS=2, PINTEN=3, PID=4, PLVL=5;
-var POX=6, POY=7, PDX=8, PDY=9, POLDX=10, POLDY=11, PBAD=12, PTOT=13;
-
-var PRADIUS2 = PINTEN;
+var POX=6, POY=7, PDX=8, PDY=9, POLDX=10, POLDY=11, PBAD=12, PRADIUS2=13;
+var PTH=14, PTOT=15;
 
 window.APP_VERSION = 0.5;
 
@@ -40,7 +39,14 @@ define([
 
   exports.defaultConfig = {
     DIMEN : 165,
-
+    ANISOTROPY : false,
+    ANIS_W1 : 0.5,
+    ANIS_W2 : 0.5,
+    DRAW_STICKS : false,
+    STICK_ROT : 0.0,
+    STICK_WIDTH : 2,
+    STICK_LENGTH : 2.0,
+    
     SPECIAL_OFFSETS : false, //use encoded lower-level offsets, multiplied by intensity
     XLARGE_MASK : false,
     SMALL_MASK : false,
@@ -292,7 +298,7 @@ define([
         
         w = w == 0.0 ? 0.0 : Math.sqrt(w);
         w = 1.0 - w/Math.sqrt(2.0);
-        w = Math.pow(w, 100.0);
+        w = Math.pow(w, 3.0);
         
         ret.push(w);
       }

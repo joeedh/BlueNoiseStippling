@@ -28,9 +28,28 @@ define([
   }
   window.rot = rot;
   
+  class InnerLoopArg {
+        constructor() {
+              this.x = this.y = this.offx = this.offy = this.ix = this.iy = 0.0;
+        }
+
+        load(x, y, ix, iy, offx, offy) {
+              this.x = x;
+              this.y = y;
+              this.ix = ix;
+              this.iy = iy;
+              this.offx = offx;
+              this.offy = offy;
+
+              return this;
+        }
+  }
+
   var BlueNoise = exports.BlueNoise = Class([
     function constructor() {
       this.points = [];
+      this.inner_loop_cachering = util.cachering.fromConstructor(InnerLoopArg, 64);
+
       this.errgrid = undefined;
       this.mask = undefined;
       
@@ -273,16 +292,137 @@ define([
       }
     },
     
+    function _inner_loop(args, refine) {
+      let x = args.x, y = args.y, ix = args.ix, iy = args.iy, offx = args.offx, offy = args.offy;
+      let points = this.points;
+      var raster_image = this.raster_image;
+      var size = this.gridsize;
+      var iw = DIMEN, ih=DIMEN, cw=iw, ch=ih;
+      var start_r = this.start_r;
+      
+      let colorout = new Array(16);
+
+      if (this.sampler == undefined) {
+        console.log("image hasn't loaded yet");
+        return undefined;
+      }
+
+      const sqrt3 = Math.sqrt(3);
+
+      var clr = this.sampler(x, y, size, 1.0);
+
+      if (clr[0] < 0) {
+        return undefined; //sampler requested we discard this sample
+      }
+
+      var f = clr[0]*clr[0] + clr[1]*clr[1] + clr[2]*clr[2];
+      f = f != 0.0 ? Math.sqrt(f) / sqrt3 : 0.0;
+
+      var sat = Math.abs(1.0-clr[0]) +  Math.abs(1.0-clr[1]) +  Math.abs(1.0-clr[2]);
+      sat /= 3.0;
+
+      if (ADAPTIVE_COLOR_DENSITY) {
+        //scale spacing of points by saturation (how much color there is)
+        f *= Math.pow(1.0-sat, 2);
+      }
+
+      if (window._f === undefined) {
+          window._f = 0.0;
+      }
+      //f = 0.0;
+
+      f = Math.min(Math.max(f, 0.0), 0.99999);
+      let finten = f;
+
+      f = MAKE_NOISE ? 0.65 : f;
+      
+      let ret = refine(f, clr, x, y);
+      let threshold = ret[3];
+      
+      let linear_f = f;
+      //let linear_f = f;
+      //let linear_threshold = ret[4];
+      
+      f = ret[2];
+      x = ret[0], y = ret[1], f = ret[2];
+      
+      let ok = 1.0-f >= threshold;
+
+      if (!ok) {
+        return undefined;
+      }
+
+      threshold = Math.min(Math.max(threshold, 0.0), 0.99999);
+      
+      if (isNaN(threshold)) {
+        throw new Error("NaN");
+      }
+      
+      //var ci = colors.closest_color_fast(clr, colorout, 0.0);
+      var ci = DITHER_COLORS ? colors.closest_color(clr) : colors.closest_color_fast(clr);
+      
+      /*
+      if (DITHER_COLORS) {
+        let ditherfac = Math.pow(threshold, 1.0/3.0);
+        
+        //ditherfac = f > 0.5 ? 1.0 - ditherfac : ditherfac;
+        //ditherfac = Math.random();
+
+        let clr2 = colors.colors[ci];
+        
+        for (let i=0; i<3; i++) {
+          let err3 = -(clr2[i]-clr[i]);
+
+          clr[i] += err3*(ditherfac-0.5)*6.0*DITHER_RAND_FAC;
+        }
+        ci = colors.closest_color(clr, undefined, 0.0);
+      }//*/
+
+      var pi = points.length;
+      for (var j=0; j<PTOT; j++) {
+        points.push(0);
+      }
+      
+      if (GRID_MODE) {
+        let gsize = size*4;
+        
+        let ix = Math.floor(x*gsize*0.5 + 0.5);
+        let iy = Math.floor(y*gsize*0.5 + 0.5);
+        
+        x = ix * 2.0 / gsize;
+        y = iy * 2.0 / gsize;
+      }
+      
+      points[pi] = x;
+      points[pi+1] = y;
+      points[pi+2] = start_r//*(1.0 + 0.25*(sat));
+      points[pi+PINTEN] = finten;
+      points[pi+4] = ci;
+      //points[pi+5] = lvl;
+      points[pi+PRADIUS2] = -1;//points[pi+PRADIUS];
+
+      points[pi+POX] = points[pi+POLDX] = points[pi];
+      points[pi+POY] = points[pi+POLDY] = points[pi+1];
+      
+      this.calc_theta(pi);
+      
+      return pi;
+    },
+
     function step_smask(custom_steps) {
+      let args = this.inner_loop_cachering.next();
+
       let points = this.points;
       var raster_image = this.raster_image;
       var steps = custom_steps ? custom_steps : window.STEPS;
       var size = this.gridsize;
+      var smask = this.smask;
       var iw = DIMEN, ih=DIMEN, cw=iw, ch=ih;
       var start_r = this.start_r;
      
       if (this.sampler == undefined) {
         console.log("image hasn't loaded yet");
+        return;
       }
 
       const sqrt3 = Math.sqrt(3);
@@ -290,22 +430,51 @@ define([
       let size3 = size / this.smask.blocksize;
 
       steps = Math.ceil(steps / this.smask.blocksize / this.smask.blocksize);
+      
+      let refine_ret = [0, 0, 0, 0, 0];
+      let p;
+      let ix, iy;
 
+      function refine(f, clr, x, y) {
+        f = smask.evalInverseTone(f);
+        
+        if (SPECIAL_OFFSETS) {
+          let co2 = p.evaluate(1.0-f);
+
+          x = co2[0], y = co2[1];
+
+          x = x / size3 + ix / size3;
+          y = y / size3 + iy / size3;
+
+          x = x*2.0 - 1.0;
+          y = y*2.0 - 1.0;
+        }
+        
+        refine_ret[0] = x;
+        refine_ret[1] = y;
+        refine_ret[2] = f
+        refine_ret[3] = p.gen;
+        refine_ret[4] = smask.evalInverseTone(p.gen);
+
+        return refine_ret;
+      }
+      
       for (var si=0; si<steps; si++, this.cur++) {
           if (this.cur >= size2*size2) {
             console.log("Done.");
             break;
           }
           
-          var ix = this.cur % size2;
-          var iy = ~~(this.cur / size2);
+          ix = this.cur % size2;
+          iy = ~~(this.cur / size2);
           
-          for (let p of this.smask.points) {
+          for (p of this.smask.points) {
                 //let co = p.evaluate(0.99999);
-                let co = p.evaluate(0.05);
-                let x = Math.fract(co[0]), y = Math.fract(co[1]);
-                x = co[0], y = co[1];
-
+                //let co = p.evaluate(0.05);
+                //let x = Math.fract(co[0]), y = Math.fract(co[1]);
+                //x = co[0], y = co[1];
+                let x = p.startx, y = p.starty;
+                
                 x = x / size3 + ix / size3;
                 y = y / size3 + iy / size3;
                 
@@ -314,77 +483,9 @@ define([
                 
                 if (x < -1 || y < -1 || x >= 1 || y >= 1)
                   continue;
-                
-                var clr = this.sampler(x, y, size, 1.0);
-
-                if (clr[0] < 0) {
-                  continue; //sampler requested we discard this sample
-                }
-
-                if (MAKE_NOISE) {
-                  clr[0] = clr[1] = clr[2] = 0.5; //Math.random()*0.3+0.7;
-                }
-                var f = clr[0]*clr[0] + clr[1]*clr[1] + clr[2]*clr[2];
-                f = f != 0.0 ? Math.sqrt(f) / sqrt3 : 0.0;
-
-                var sat = Math.abs(1.0-clr[0]) +  Math.abs(1.0-clr[1]) +  Math.abs(1.0-clr[2]);
-                sat /= 3.0;
-
-                if (ADAPTIVE_COLOR_DENSITY) {
-                  //scale spacing of points by saturation (how much color there is)
-                  f *= Math.pow(1.0-sat, 2);
-                }
-                
-                if (window._f === undefined) {
-                      window._f = 0.0;
-                }
-                //f = 0.0;
-                
-                f = Math.min(Math.max(f, 0.0), 0.99999);
-
-                let dfac = 1.01;
-
-                let ok = (1.0-f)*dfac >= p.gen*0.999;
-                //let ok = f <= p.gen;
-
-                if (!ok) {
-                  continue;
-                }
-                
-                var ci = colors.closest_color(clr);
-                
-                let co2 = p.evaluate((1.0 - f)*dfac);
-                
-                //co2 = co;
-                x = co2[0], y = co2[1];
-                //x = Math.fract(co2[0]);
-                //y = Math.fract(co2[1]);
-
-                //let ti = p.offsets.length/2;
-                //x = Math.fract(p.offsets[ti]);
-                //y = Math.fract(p.offsets[ti+1]);
-
-                x = x / size3 + ix / size3;
-                y = y / size3 + iy / size3;
-                
-                x = x*2.0 - 1.0;
-                y = y*2.0 - 1.0;
-
-                var pi = points.length;
-                for (var j=0; j<PTOT; j++) {
-                  points.push(0);
-                }
-
-                points[pi] = x;
-                points[pi+1] = y;
-                points[pi+2] = start_r//*(1.0 + 0.25*(sat));
-                points[pi+3] = f;
-                points[pi+4] = ci;
-                //points[pi+5] = lvl;
-                points[pi+PRADIUS2] = -1;//points[pi+PRADIUS];
-
-                points[pi+POX] = points[pi+POLDX] = points[pi];
-                points[pi+POY] = points[pi+POLDY] = points[pi+1];
+               
+               args.load(x, y, ix, iy, 0, 0);
+               this._inner_loop(args, refine);
           }
       }
       
@@ -442,7 +543,8 @@ define([
       
       var mask = this.mask.data.data;
       var mscale = SMALL_MASK ? 1 : (XLARGE_MASK ? 8 : 4);
-
+      
+      var ix, iy;
       var oks = new Array(colors.colors.length);
       var clrws = new Array(colors.colors.length);
       var clridxs = new Array(colors.colors.length);
@@ -499,8 +601,8 @@ define([
           
           var gx = x, gy = y;
           
-          var ix = ~~(((x*mscale) % cw)+0.5);
-          var iy = ~~(((y*mscale) % ch)+0.5);
+          ix = ~~(((x*mscale) % cw)+0.5);
+          iy = ~~(((y*mscale) % ch)+0.5);
           
           var igx = x;
           var igy = y;
@@ -516,10 +618,6 @@ define([
             continue; //sampler requested we discard this sample
           }
           
-          if (MAKE_NOISE) {
-            clr[0] = clr[1] = clr[2] = 0.5; //Math.random()*0.3+0.7;
-          }
-          
           //var f = (clr[0]*0.4026 + clr[1]*0.4052 + clr[2]*0.2022)*0.8;
           var f = clr[0]*clr[0] + clr[1]*clr[1] + clr[2]*clr[2];
           f = f != 0.0 ? Math.sqrt(f) / sqrt3 : 0.0;
@@ -531,6 +629,9 @@ define([
             //scale spacing of points by saturation (how much color there is)
             f *= Math.pow(1.0-sat, 2);
           }
+          let finten = f;
+          
+          f = MAKE_NOISE ? 0.65 : f;
           
           var idx = (iy*cw + ix)*4; 
           var threshold = mask[idx]/255.0;
@@ -721,8 +822,12 @@ define([
           }
           
           var sat=0;
-          var ci = colors.closest_color_fast(clr);
-            
+          var ci = 0;
+
+          if (ok || RASTER_IMAGE) {
+            ci = colors.closest_color_fast(clr);
+          }
+          
           if (ok > 0) {
             offx /= ok;
             offy /= ok;
@@ -832,6 +937,7 @@ define([
 
           clr1[0] = clr[0]; clr1[1] = clr[1]; clr1[2] = clr[2];
           
+          //XXX re-enable me
           if (DITHER_COLORS && (!RASTER_IMAGE || RASTER_MODE != RASTER_MODES.CMYK)) {
             //igx = ~~((x*0.5+0.5)*size);
             //igy = ~~((y*0.5+0.5)*size);
@@ -971,16 +1077,19 @@ define([
           for (var j=0; j<PTOT; j++) {
             points.push(0);
           }
+
           points[pi] = x;
           points[pi+1] = y;
           points[pi+2] = start_r//*(1.0 + 0.25*(sat));
-          points[pi+3] = f;
+          points[pi+PINTEN] = finten;
           points[pi+4] = ci;
           points[pi+5] = lvl;
           points[pi+PRADIUS2] = -1;//points[pi+PRADIUS];
           
           points[pi+POX] = points[pi+POLDX] = points[pi];
           points[pi+POY] = points[pi+POLDY] = points[pi+1];
+          
+          this.calc_theta(pi);
       }
       
       if (!skip_points_display) {
@@ -1026,15 +1135,15 @@ define([
         this.smask = new smoothmask.PointSet().fromBinary(maskdata);
       } else {
         this.smask = undefined;
-      }
-      
-      this._mask = new Image();
-      this._mask.src = maskdata;
-      
-      var this2 = this;
-      this._mask.onload = function() {
-        this.mask = this._mask;
-        this2.on_image_read(this2._mask, 'mask');
+        
+        this._mask = new Image();
+        this._mask.src = maskdata;
+
+        var this2 = this;
+        this._mask.onload = function() {
+          this.mask = this._mask;
+          this2.on_image_read(this2._mask, 'mask');
+        }
       }
     },
 
@@ -1158,6 +1267,43 @@ define([
       this.kdtree = kd;
       
       return kd;//*/
+    },
+    
+    function calc_theta(pi) {
+      let ps = this.points, isize = _appstate.image.width;
+      
+      let x = ps[pi], y = ps[pi+1];
+
+      let clr = this.sampler(x, y, this.gridsize, 1.0);
+
+      if (clr[0] < 0) {
+        return; //dropped point
+      }
+      
+      let df = 7/isize;
+      
+      let f1 = (clr[0]+clr[1]+clr[2])/3.0;
+      
+      clr = this.sampler(x+df, y, this.gridsize, 1.0);
+      let f2 = (clr[0]+clr[1]+clr[2])/3.0;
+      
+      clr = this.sampler(x, y+df, this.gridsize, 1.0);
+      let f3 = (clr[0]+clr[1]+clr[2])/3.0;
+      
+      let dx = (f2 - f1) / df;
+      let dy = (f3 - f1) / df;
+      
+      ps[pi+PTH] = Math.PI*0.5-Math.atan2(dy, dx);
+    },
+    
+    function calc_thetas() {
+      let ps = this.points;
+      
+      let isize = _appstate.image.width;
+      
+      for (let pi=0; pi<ps.length; pi += PTOT) {
+        this.calc_theta(pi);
+      }
     },
     
     function calc_radii_old(use_orig_cos) {
@@ -1332,16 +1478,119 @@ define([
       console.log("total tris:", tris.length/3);
     },
     
+    function getMaskPoints() {
+      let ps = [];
+      
+      if (this.smask) {
+        for (let path of this.smask.points) {
+          let pi = ps.length;
+          
+          for (let i=0; i<PTOT; i++) {
+            ps.push(0);
+          }
+          
+          let co = path.evaluate(path.gen);
+          
+          ps[pi] = co[0];
+          ps[pi+1] = co[1];
+          ps[pi+PLVL] = path.gen;
+        }
+        
+        return ps;
+      } else {
+        if (this.mask.data === undefined) {
+          console.warn("Mask hasn't loaded yet");
+          return [];
+        }
+        
+        let ps = [];
+        let size = this.mask.width;
+        let mdata = this.mask.data.data;
+        let ilen = size*size;
+        
+        for (let i=0; i<ilen; i++) {
+          let ix = i % size, iy = ~~(i / size);
+          let x = ix/size, y = iy/size;
+          
+          let idx = (iy*size + ix)*4;
+          
+          if (!SMALL_MASK && mdata[idx] == 0) {
+            continue;
+          }
+          
+          let pi = ps.length;
+          for (let j=0; j<PTOT; j++) {
+            ps.push(0);
+          }
+          
+          ps[pi] = x;
+          ps[pi+1] = y;
+          ps[pi+PLVL] = 1.0 - mdata[idx]/255.0;
+        }
+        
+        return ps;
+      }
+    },
+    
+    function getMaskCDF() {
+      let cdf = new Float64Array(1024);
+      let ps = this.getMaskPoints();
+
+      cdf.fill(0, 0, cdf.length);
+
+      for (let pi=0; pi<ps.length; pi += PTOT) {
+        let gen = ps[pi+PLVL];
+
+        let ci = ~~(gen*cdf.length*0.999999);
+        cdf[ci]++;
+      }
+
+      for (let i=1; i<cdf.length; i++) {
+            cdf[i] = cdf[i-1] + cdf[i];
+      }
+
+      return cdf;
+    },
+
     function calc_radii() {
       console.log("updating radii");
-      //this.calc_radii(false);
+      //this.calc_radii_old(false);
+      
+      let cdf = this.getMaskCDF();
+      let masksize;
+
+      if (this.smask !== undefined) {
+          masksize = this.smask.blocksize;
+      } else if (!SMALL_MASK) {
+          masksize = this.mask.width;
+          masksize = XLARGE_MASK ? masksize/8 : masksize/4;
+      } else {
+          masksize = this.mask.width;
+      }
+
+      let maskscale = masksize / this.dimen;
 
       let size = this.dimen;
       let ps = this.points;
       
-      let minrad = 2.5 / (Math.sqrt(2)*this.dimen);
-      let maxrad = minrad*6;
+      //let minrad = 2.5 / (Math.sqrt(2)*this.dimen);
+      //let maxrad = minrad*6;
       let sqrt3 = Math.sqrt(3);
+
+      let radmul = 0.85;
+
+      let startgen = cdf[0];
+      for (let i=0; i<cdf.length; i++) {
+        if (cdf[i] != 0) {
+          startgen = cdf[i];
+          break;
+        }
+      }
+
+      let minrad = radmul / Math.sqrt(cdf[cdf.length-1]+1) * maskscale;
+      let maxrad = radmul / Math.sqrt(startgen + masksize*0.005) * maskscale; //ensure radius doesn't get too big by adding chunk of masksize
+      
+      //maxrad = 18 * 0.95 / Math.sqrt(this.dimen*this.dimen);
 
       /*
       console.log("building kdtree. . .");
@@ -1351,40 +1600,60 @@ define([
       
       //*
       for (var i=0; i<ps.length; i += PTOT) {
-        let clr = this.sampler(ps[i], ps[i+1], this.gridsize, 1.0);
-        
-        if (clr[0] < 0) { //sampler requested we discard the point.  try original location
-          clr = this.sampler(ps[i+POX], ps[i+POY], this.gridsize, 1.0);
-          ps[i+PBAD] = 1;
+        let f;
+        if (0) { //resample
+              let clr = this.sampler(ps[i], ps[i+1], this.gridsize, 1.0);
+
+              if (clr[0] < 0) { //sampler requested we discard the point.  try original location
+                clr = this.sampler(ps[i+POX], ps[i+POY], this.gridsize, 1.0);
+                ps[i+PBAD] = 1;
+              } else {
+                ps[i+PBAD] = 0;
+              }
+
+              if (clr[0] < 0) { //point is still bad?
+                ps[i+PRADIUS2] = minrad*0.5;
+                ps[i+PBAD] = 1;
+                continue;
+              }
+
+              f = clr[0]*clr[0] + clr[1]*clr[1] + clr[2]*clr[2];
+              f = f != 0.0 ? Math.sqrt(f) / sqrt3 : 0.0;
+
+              let sat = Math.abs(1.0-clr[0]) +  Math.abs(1.0-clr[1]) +  Math.abs(1.0-clr[2]);
+              sat /= 3.0;
+
+              if (ADAPTIVE_COLOR_DENSITY) {
+                //scale spacing of points by saturation (how much color there is)
+                f *= Math.pow(1.0-sat, 2);
+              }
         } else {
-          ps[i+PBAD] = 0;
+            f = ps[i+PINTEN];
         }
 
-        if (clr[0] < 0) { //point is still bad?
-          ps[i+PRADIUS2] = minrad*0.5;
-          ps[i+PBAD] = 1;
-          continue;
-        }
+        //relax2() is naturally a blurring operation
+        //make it sharpen instead by warping the radii.
+
+        //f = Math.pow(f, 1.25);
+        //or not
+
+        //calculate final radius
+        f = 1.0 - f;
+        f = Math.min(Math.max(f, 0.0), 1.0)*0.999999; //clamp
+
+        let ci = ~~(f*cdf.length);
+        let g = cdf[ci];
+        //g = f*size*size;
+        let r = 2.0*radmul / Math.sqrt(g+masksize*0.005)*maskscale;
+        //let r = minrad + (maxrad - minrad)*f;
         
-        let f = clr[0]*clr[0] + clr[1]*clr[1] + clr[2]*clr[2];
-        f = f != 0.0 ? Math.sqrt(f) / sqrt3 : 0.0;
-        
-        let sat = Math.abs(1.0-clr[0]) +  Math.abs(1.0-clr[1]) +  Math.abs(1.0-clr[2]);
-        sat /= 3.0;
-        
-        if (ADAPTIVE_COLOR_DENSITY) {
-          //scale spacing of points by saturation (how much color there is)
-          f *= Math.pow(1.0-sat, 2);
-        }
-        
-        //f *= f;
-        //f = f*f;
-        //f = f*f*f*1.5;
-        f *= f*2.0;
-        let r = minrad + (maxrad - minrad)*f;
-        
-        ps[i+PRADIUS2] = r*0.5;//*0.75
+
+        //r = Math.min(r, maxrad);
+
+        ps[i+PRADIUS2] = r;
       }//*/
+
+      return maxrad;
     },
     
     function relax2() {
@@ -1397,11 +1666,175 @@ define([
       let sumdx=0, sumdy=0, sumw=0, x1=0, y1=0, r1=0, pi1, searchr;
       let tree = this.calc_kdtree();
       
+      let anis_w1 = ANIS_W1, anis_w2 = ANIS_W2;
+      /*
+      let asum = (anis_w1+anis_w2);
+      
+      if (asum != 0) {
+        anis_w1 /= asum;
+        anis_w2 /= asum;
+      }
+      //*/
+      
       let p = [0, 0, 0];
-      const searchfac = 6.0;
+      const searchfac = ANISOTROPY ? 3.0 : 3.0;
       const sqrt3 = Math.sqrt(3.0);
 
-      this.calc_radii();
+      maxrad = this.calc_radii();
+      
+      let isize = _appstate.image.width;
+
+      //calculate image gradients
+      for (let pi=0; pi<ps.length; pi += PTOT) {
+        let x = ps[pi], y = ps[pi+1];
+        let clr = this.sampler(x, y, this.gridsize, 1.0);
+        
+        if (clr[0] < 0) { //dropped point?
+          continue;
+        }
+        
+        let f1 = (clr[0] + clr[1] + clr[2]) / 3.0;
+        
+        let df = 5/isize;
+
+        clr = this.sampler(x + df, y, this.gridsize, 1.0);
+        let f2 = (clr[0] + clr[1] + clr[2]) / 3.0;
+        
+        clr = this.sampler(x, y + df, this.gridsize, 1.0);
+        let f3 = (clr[0] + clr[1] + clr[2]) / 3.0;
+        
+        let dx = f2 - f1, dy = f3 - f1;
+        
+        //let l = Math.sqrt(dx*dx + dy*dy);
+        
+        //if (l > 0) {
+          //dx /= l;
+          //dy /= l;
+        //}
+
+        ps[pi+PINTEN] = f1;
+        ps[pi+PDX] = dx/df;
+        ps[pi+PDY] = dy/df;
+      }
+      
+      function distmetric(pi1, pi2) {
+        let x1 = ps[pi1], y1 = ps[pi1+1], x2=ps[pi2], y2 = ps[pi2+1];
+        
+        if (ANISOTROPY) {
+          let dx = x1-x2, dy = y1-y2;
+          let dis = Math.sqrt(dx*dx + dy*dy);
+          let dx1 = ps[pi1+PDX], dy1 = ps[pi1+PDY];
+          let dx2 = ps[pi2+PDX], dy2 = ps[pi2+PDY];
+
+          /*
+           on factor;
+           off period;
+          
+           comment: taken from anisotropic blue noise paper(s);
+           metric := mat((a1, a2), (b1, b2));
+           dmat := mat((x1-x2), (y1-y2));
+  
+           ff := (tp dmat) * metric * dmat;
+           ff := part(ff, 1, 0);
+
+           comment: taken from anisotropic blue noise paper(s);
+           fx := fx;
+           fy := fy;
+           fi := i(fx, fy);
+          
+           comment
+           1       0     dx
+           0       1     dy
+           1/dx  1/dy    1
+           ;
+
+           metric := mat((1, 0, dx), (0, 1, dy), (1/dx, 1/dy, 1))*density;
+           dmat := mat((x1-x2), (y1-y2), (i1-i2));
+           
+           ff := (tp dmat) * metric * dmat;
+           ff := part(ff, 1, 0);
+          */
+          
+          /*
+          let dot2 = (dx1*(x2-x1)) + (dy1*(y2-y1));
+          
+          if (dot2 < 0) {
+            dx1 = -dx1;
+            dy1 = -dy1;
+          }
+          
+          let dot = dx1*dx2 + dy1*dy2;
+          
+          if (dot < 0) {
+            dx2 = -dx2;
+            dy2 = -dy2;
+          }
+          //*/
+
+          /*
+          let a1 = dx1, a2 = dy1, b1 = dx2, b2 = dy2;
+
+          dis = a1*x1**2-2.0*a1*x1*x2+a1*x2**2+a2*x1*y1-a2*x1*y2-a2*x2*y1+a2
+                *x2*y2+b1*x1*y1-b1*x1*y2-b1*x2*y1+b1*x2*y2+b2*y1**2-2.0*b2*y1*
+                y2+b2*y2**2;
+         //*/
+
+         /*
+         let i1 = ps[pi1+PINTEN], i2 = ps[pi2+PINTEN];
+         dx = dx1, dy = dy1;
+         
+         dx = dx != 0 ? 1.0 / dx : 0;
+         dy = dy != 0 ? 1.0 / dy : 0;
+         let density = 1.0 - i1;
+         
+         if (dx*dy == 0) {
+           dis = 0;
+         } else {
+           //dis=(dx**2*dy*i1*x1-dx**2*dy*i1*x2-dx**2*dy*i2*x1+dx**2*dy*i2*
+           //     x2+dx*dy**2*i1*y1-dx*dy**2*i1*y2-dx*dy**2*i2*y1+dx*dy**2*i2*y2
+           //     +dx*dy*i1**2-2.0*dx*dy*i1*i2+dx*dy*i2**2+dx*dy*x1**2-2.0*dx*dy
+           //     *x1*x2+dx*dy*x2**2+dx*dy*y1**2-2.0*dx*dy*y1*y2+dx*dy*y2**2+dx*
+           //     i1*y1-dx*i1*y2-dx*i2*y1+dx*i2*y2+dy*i1*x1-dy*i1*x2-dy*i2*x1+dy
+           //     *i2*x2)/(dx*dy);
+                
+           
+           dis=(density*(dx**2*dy*i1*x1-dx**2*dy*i1*x2-dx**2*dy*i2*x1+dx**
+                2*dy*i2*x2+dx*dy**2*i1*y1-dx*dy**2*i1*y2-dx*dy**2*i2*y1+dx*dy
+                **2*i2*y2+dx*dy*i1**2-2.0*dx*dy*i1*i2+dx*dy*i2**2+dx*dy*x1**2-
+                2.0*dx*dy*x1*x2+dx*dy*x2**2+dx*dy*y1**2-2.0*dx*dy*y1*y2+dx*dy*
+                y2**2+dx*i1*y1-dx*i1*y2-dx*i2*y1+dx*i2*y2+dy*i1*x1-dy*i1*x2-dy
+                *i2*x1+dy*i2*x2))/(dx*dy);
+          }
+
+          //return dis*0.0025*(1.0-i1*i1); //Math.max(dis * (0.25 + dis2), 0.0); //ps[pi1+PRADIUS2];// + 0.35*(2.0-tdis)*ps[pi1+PRADIUS2];
+          //*/
+
+          dis = dis > 0 ? Math.sqrt(dis) : 0;
+          
+          dx = (x2 - x1), dy = (y2 - y1);
+          if (dx*dx1 + dy*dy1 < 0) {
+            dx1 = -dx1;
+            dy1 = -dy1;
+          }
+          
+          let l = dx1*dx1 + dy1*dy1;
+          if (l > 0) {
+            l = Math.sqrt(l);
+            dx1 /= l;
+            dy1 /= l;
+          }
+          
+          dis = Math.abs(dx*dy1 - dy*dx1);
+          
+          //dis = Math.sqrt(dis);
+          return dis*anis_w1 + Math.sqrt(dx*dx + dy*dy)*anis_w2;          
+        } else {
+          let dx = x1-x2, dy = y1-y2;
+          
+          let dis = Math.sqrt(dx*dx + dy*dy);
+          return dis;
+        }
+      }
       
       let callback = (pi2) => {
         let x2 = ps[pi2], y2 = ps[pi2+1], r2 = ps[pi2+PRADIUS2];
@@ -1411,31 +1844,50 @@ define([
           throw new Error("nan!");
         }
         
-        let dis = dx*dx + dy*dy;
+        //let dis = dx*dx + dy*dy;
         
-        if (dis == 0.0 || dis > searchr*searchr) {
+        let dis = distmetric(pi1, pi2);
+        
+        if (dis == 0.0 || dis > searchr) {
           return;
         }
         
-        dis = Math.sqrt(dis);
         let w = 1.0 - dis / searchr;
         //w = w*w*(3.0 - 2.0*w);
-        w = Math.pow(w, 5.0);
+        w = Math.pow(w, 4.0);
         
+        //*
+        //go a bit above top radius to avoid gaps from not having the perfect number of points
+        let r3 = Math.max(r1, r2)*1.5;
+        //r3 = 0.5*(r1 + r2); 
+
+        dx *= (r3 - dis)/dis;
+        dy *= (r3 - dis)/dis;
+        //*/
+
+        /*
         dx /= dis;
         dy /= dis;
-
-        dis = dis - Math.max(r1, r2)*3.6; //Math.max(r1, r2);
-        dis = -dis;
+         
+        dis = Math.max(r1, r2)*4.0 - dis; //go a bit above r*2.0 to avoid gaps from not having the perfect number of points
         dx *= dis;
         dy *= dis;
-
-        //w *= r2*r2
-
-        //w *= r2/r1;
         
-        //w *= r2/maxrad;
+        //w *= r2
+        //*/
+
+        /*
+        let rf = r2/maxrad;
+        rf = rf*rf*(3.0-2.0*rf);
         
+        w *= rf*rf;
+        //*/
+
+        //if (ANISOTROPY) {
+          //dx += -ps[pi2+PDY]*1.5*w;
+          //dy += ps[pi2+PDX]*1.5*w;
+        //}
+
         sumdx += -dx*w;
         sumdy += -dy*w;
         sumw  += w;
@@ -1467,7 +1919,7 @@ define([
         sumdx /= sumw;
         sumdy /= sumw;
         
-        let fac = RELAX_SPEED*0.0625*3.0;
+        let fac = RELAX_SPEED*0.0625*(ANISOTROPY ? 5.0 : 1.0);
         if (ps[pi1+PBAD] > 0) {
           fac *= 0.15;
         }

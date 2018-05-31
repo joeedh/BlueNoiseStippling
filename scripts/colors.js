@@ -892,12 +892,26 @@ define([
     
     var w1 = 0.8;
     var w2 = 1.0;
-    var w3 = 0.8;
-    
-    //w1=w2=w3=1.0;
+    var w3 = 0.4;
     
     dis = (Math.abs(dr)*w1 + Math.abs(dg)*w2 + Math.abs(db)*w3)/(w1+w2+w3);
 
+    //compare how saturated (close to greyscale) each color is, too
+    let s1=0, s2=0;
+    for (let i=0; i<2; i++) {
+      let c = i ? c2 : c1;
+
+      let avg = (c[0] + c[1] + c[2])/3.0;
+      let sat = Math.sqrt((c[0]-avg)*(c[0]-avg) + (c[1]-avg)*(c[1]-avg) + (c[2]-avg)*(c[2]-avg));
+
+      if (i)
+        s2 = sat;
+      else
+        s1 = sat;
+    }
+
+    dis = Math.sqrt(dr*dr + dg*dg + db*db) + 0.5*Math.abs(s1-s2);
+    
     //dis = dr*dr*w1*w1 + dg*dg*w2*w2 + db*db*w3*w3;
     //dis = dis == 0.0 ? 0.0 : Math.sqrt(dis)/((w1+w2+w3)*Math.sqrt(3.0));
     
@@ -957,7 +971,7 @@ define([
         var dis = dx*dx + dy*dy + dz*dz;
         //dis = dx*0.3 + dy*0.5 + dz*0.2;
         
-        var dis = colordis(c1, c4);
+        var dis = colordis(c1, c4, ditherfac);
         if (isNaN(dis)) throw new Error("nan!");
         
         var dadd = 0.0;//(Math.random()-0.5)*2.0*ditherfac;
@@ -1053,14 +1067,30 @@ define([
     _cc_tmp1.length = colors.length;
     _cc_tmp2.length = colors.length;
     
+    let mini = undefined;
+
     for (var i=0; i<colors.length; i++) {
       var c2 = colors[i];
       var dis = not_diffusing ? colordis_not_diffusing(c1, c2) : colordis(c1, c2);
       
-      _cc_tmp1[i] = i;
-      _cc_tmp2[i] = dis - dfac; //dfac != 0.0 ? Math.fract(dis + dfac) : dis;
+      dis += -dfac; //dfac != 0.0 ? Math.fract(dis + dfac) : dis;
+
+      if (nextout !== undefined) {
+        _cc_tmp1[i] = i;
+        _cc_tmp2[i] = dis
+      }
+
+      if (mindis === undefined || (dis < mindis && dis > 0)) {
+        mindis = dis;
+        mini = i;
+      }
     }
     
+    //don't need fully sorted distance list?
+    if (nextout === undefined) {
+      return mini;  
+    }
+
     for (let i=0; i<_cc_tmp2.length; i++) {
       //*
       if (_cc_tmp2[i] < 0) {
@@ -1071,7 +1101,8 @@ define([
     }
     
     _cc_tmp1.sort((a, b) => _cc_tmp2[a] - _cc_tmp2[b]);
-    
+    //_cc_tmp2.sort();
+
     if (nextout) {
       let nlen = Math.min(nextout.length, _cc_tmp1.length);
       
@@ -1080,7 +1111,11 @@ define([
       }
     }
     
-    return _cc_tmp1[0];
+    ditherfac = Math.max(Math.min(ditherfac, 0.999999), 0.0);
+
+    let ci = 0;//~~(ditherfac*Math.min(colors.length, 3.0));
+    
+    return _cc_tmp1[ci];
   }
   
   var _cwc = [0, 0, 0];
