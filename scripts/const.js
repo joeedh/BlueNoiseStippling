@@ -40,8 +40,8 @@ define([
   exports.defaultConfig = {
     DIMEN : 165,
     ANISOTROPY : false,
-    ANIS_W1 : 0.5,
-    ANIS_W2 : 0.5,
+    ANIS_W1 : 0.6,
+    ANIS_W2 : 0.6,
     DRAW_STICKS : false,
     STICK_ROT : 0.0,
     STICK_WIDTH : 2,

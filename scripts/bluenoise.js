@@ -1274,26 +1274,52 @@ define([
       
       let x = ps[pi], y = ps[pi+1];
 
-      let clr = this.sampler(x, y, this.gridsize, 1.0);
+      let dx, dy;
+      
+      /*
+      try and correct for 8-bit alias errors
+      by first sampling derivative, and then scaling
+      the finite difference width by how small the derivative
+      is
+      */
+      for (let step=0; step<3; step++) {
+        let df = 4/isize;
 
-      if (clr[0] < 0) {
-        return; //dropped point
+        if (step) {
+          let mag = Math.sqrt(dx*dx + dy*dy) / Math.sqrt(2.0);
+
+          if (mag > 0.8) {
+          //  break;
+          }
+          
+          mag = 1.0 - mag;
+          mag = Math.pow(mag, 2.0);
+
+          let a = Math.pow(4, step);
+          let b = Math.pow(4, (step+1));
+
+          df = (a + (b - a)*mag)/isize;
+        }
+
+        let clr = this.sampler(x, y, this.gridsize, 1.0);
+
+        if (clr[0] < 0) {
+          return; //dropped point
+        }
+        
+        let f1 = (clr[0]+clr[1]+clr[2])/3.0;
+
+        clr = this.sampler(x+df, y, this.gridsize, 1.0);
+        let f2 = (clr[0]+clr[1]+clr[2])/3.0;
+
+        clr = this.sampler(x, y+df, this.gridsize, 1.0);
+        let f3 = (clr[0]+clr[1]+clr[2])/3.0;
+
+        dx = (f2 - f1) / df;
+        dy = (f3 - f1) / df;
       }
-      
-      let df = 7/isize;
-      
-      let f1 = (clr[0]+clr[1]+clr[2])/3.0;
-      
-      clr = this.sampler(x+df, y, this.gridsize, 1.0);
-      let f2 = (clr[0]+clr[1]+clr[2])/3.0;
-      
-      clr = this.sampler(x, y+df, this.gridsize, 1.0);
-      let f3 = (clr[0]+clr[1]+clr[2])/3.0;
-      
-      let dx = (f2 - f1) / df;
-      let dy = (f3 - f1) / df;
-      
-      ps[pi+PTH] = Math.PI*0.5-Math.atan2(dy, dx);
+
+      ps[pi+PTH] = -Math.atan2(dy, dx);
     },
     
     function calc_thetas() {
@@ -1823,6 +1849,10 @@ define([
             dx1 /= l;
             dy1 /= l;
           }
+          
+          dx1 = Math.sin(ps[pi1+PTH] + STICK_ROT + Math.PI*0.5);
+          dy1 = Math.cos(ps[pi1+PTH] + STICK_ROT + Math.PI*0.5);
+          
           
           dis = Math.abs(dx*dy1 - dy*dx1);
           

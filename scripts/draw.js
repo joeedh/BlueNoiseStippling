@@ -381,10 +381,10 @@ define([
           }
           
           
-          let thfac = 1//(1.0 - inten)**0.15;
+          let thfac = 1.0 + inten;//(1.0 - inten)**0.15;
           
-          let dx = Math.sin(th + STICK_ROT + Math.PI*0.5)*szfac*thfac*STICK_LENGTH;
-          let dy = Math.cos(th + STICK_ROT + Math.PI*0.5)*szfac*thfac*STICK_LENGTH;
+          let dx = Math.sin(th + STICK_ROT)*szfac*thfac*STICK_LENGTH;
+          let dy = Math.cos(th + STICK_ROT)*szfac*thfac*STICK_LENGTH;
           
           g.moveTo(x-dx, y-dy);
           g.lineTo(x+dx, y+dy);

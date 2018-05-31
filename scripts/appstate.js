@@ -668,10 +668,10 @@ define([
       apanel.check("ANISOTROPY", "Flow Relaxation");
       apanel.check("DRAW_STICKS", "Draw Sticks");
       apanel.slider("STICK_ROT", "StickRot", 0.0, -Math.PI, Math.PI, 0.0001, false, true);
-      apanel.slider("STICK_WIDTH", "StickWidth", 0.0, 0.0001, 4.0, 0.0001, false, true);
-      apanel.slider("STICK_LENGTH", "StickLength", 0.0, 0.0001, 6.0, 0.0001, false, true);
-      apanel.slider("ANIS_W1", "W1", 0.0, -Math.PI, Math.PI, 0.0001, false, false);
-      apanel.slider("ANIS_W2", "W2", 0.0, -Math.PI, Math.PI, 0.0001, false, false);
+      apanel.slider("STICK_WIDTH", "StickWidth", 0.0, 0.0001, 12.0, 0.0001, false, true);
+      apanel.slider("STICK_LENGTH", "StickLength", 0.0, 0.0001, 12.0, 0.0001, false, true);
+      apanel.slider("ANIS_W1", "W1", 0.0, -2.0, 16.0, 0.0001, false, false);
+      apanel.slider("ANIS_W2", "W2", 0.0, -2.0, 16.0, 0.0001, false, false);
       apanel.close();
       
       panel.check('TRI_MODE', "Triangle Mode");
