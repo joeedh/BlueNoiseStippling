@@ -47,6 +47,8 @@ define([
     STICK_WIDTH : 2,
     STICK_LENGTH : 2.0,
     
+    SHOW_IMAGE : false,
+    
     SPECIAL_OFFSETS : false, //use encoded lower-level offsets, multiplied by intensity
     XLARGE_MASK : false,
     SMALL_MASK : false,
@@ -84,6 +86,8 @@ define([
     STEPS : 5000,
     RAND_FAC : 0.0,
     DITHER_RAND_FAC : 0.0,
+    DITHER_BLUE : true,
+    DITHER_BLUE_STEPS : 6,
 
     BG_PALETTE : false,
     SIMPLE_PALETTE : false,

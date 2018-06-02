@@ -7,6 +7,40 @@ define([
   
   var exports = _colors = {};
   var colors = exports.colors = [];
+  
+  let DitherSampler = exports.DitherSampler = class DitherSampler extends Array {
+    constructor(size=1024*32) {
+      super();
+
+      let rand = new util.MersenneRandom(0);
+
+      for (let i=0; i<size; i++) {
+        this.push(rand.random());
+      }
+
+      this.cur = 0;
+    }
+
+    seed(i) {
+      i = ~~i;
+
+      while (i < 0) {
+        i += this.length;
+      }
+
+      this.cur = i % this.length;
+      return this;
+    }
+
+    random() {
+      let ret = this[this.cur];
+
+      this.cur = (this.cur + 1) % this.length;
+      return ret;
+    }
+  }
+
+  exports.ditherSampler = new DitherSampler();
 
   //very crappy palette generator (it excludes purple, purple is evil!)
   
@@ -879,7 +913,7 @@ define([
     }
     
     if (DITHER_COLORS) { //small random factor
-      dis += (Math.random()-0.5)*DITHER_RAND_FAC*dis;
+      dis += (exports.ditherSampler.random()-0.5)*DITHER_RAND_FAC*dis;
       dis = Math.max(dis, 0.0);
     }
     
@@ -924,7 +958,7 @@ define([
     }//*/
     
     if (DITHER_COLORS) { //small random factor
-      dis += (Math.random()-0.5)*DITHER_RAND_FAC*dis;
+      dis += (exports.ditherSampler.random()-0.5)*DITHER_RAND_FAC*dis;
       dis = Math.max(dis, 0.0);
     }
   
@@ -974,7 +1008,7 @@ define([
         var dis = colordis(c1, c4, ditherfac);
         if (isNaN(dis)) throw new Error("nan!");
         
-        var dadd = 0.0;//(Math.random()-0.5)*2.0*ditherfac;
+        var dadd = 0.0;//(exports.ditherSampler.random()-0.5)*2.0*ditherfac;
         
         if (dis < mindis + dadd) {
           mindis = dis;

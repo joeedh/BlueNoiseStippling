@@ -2,10 +2,11 @@
 var _bluenoise = undefined; 
 define([
   'util', 'const', 'draw', 'colors', 'diffusion', 'delaunay', 
-  'kdtree', 'kdtree2', 'smoothmask', "indexdb_store", "smoothmask_file"
+  'kdtree', 'kdtree2', 'smoothmask', "indexdb_store", "smoothmask_file",
+  "sampler"
 ], function(util, cconst, draw, colors, diffusion,
             delaunay, kdtree, kdtree2, smoothmask, indexdb_store, 
-            smoothmask_file) {
+            smoothmask_file, sampler) {
   "use strict";
   
   var exports = _bluenoise = {};
@@ -44,7 +45,7 @@ define([
               return this;
         }
   }
-
+  
   var BlueNoise = exports.BlueNoise = Class([
     function constructor() {
       this.points = [];
@@ -358,6 +359,8 @@ define([
         throw new Error("NaN");
       }
       
+      if (DITHER_BLUE) colors.ditherSampler.seed(this.getPixelSeed(1.0 - threshold));
+
       //var ci = colors.closest_color_fast(clr, colorout, 0.0);
       var ci = DITHER_COLORS ? colors.closest_color(clr) : colors.closest_color_fast(clr);
       
@@ -502,6 +505,11 @@ define([
       }
     },
 
+    function getPixelSeed(threshold) {
+      //threshold = threshold**0.5;
+      return ~~(threshold * DITHER_BLUE_STEPS); //colors.colors.length * 0.25);
+    },
+
     //REFACTOR MUST HAPPEN!
     function step(custom_steps, skip_points_display) {
       if (RASTER_IMAGE && RASTER_MODE == RASTER_MODES.PATTERN) {
@@ -535,7 +543,7 @@ define([
       var steps = custom_steps ? custom_steps : window.STEPS;
       var cw = this.mask.width;
       var ch = this.mask.height;
-      
+
       if (this.mask.data == undefined) {
         console.log("WARNING: mask failed to load");
         return;
@@ -698,6 +706,7 @@ define([
           var rotmask = 1;
           let offx = 0, offy = 0;
           let stop = false;
+          threshold = 0;
           
           for (var i=0; !stop && i<wid; i++) {
             for (var j=0; !stop && j<wid; j++) {
@@ -795,16 +804,19 @@ define([
                 finalth += mask[idx2]/255.0 + ditherfac;
                 sumx += i/size;
                 sumy += j/size;
-                
+
+                threshold += mask[idx2]/255.0;
                 //stop = true;
                 //break;
               }
             }
           }
           
-          if (ok > 0)
+          if (ok > 0) {
             finalth /= ok;
-          
+            threshold /= ok;
+          }
+
           if (SMALL_MASK) {
             var cix = (~~((x*0.5+0.5)*size+0.05)) % cw;
             var ciy = (~~((y*0.5+0.5)*size+0.05)) % ch;
@@ -825,7 +837,12 @@ define([
           var ci = 0;
 
           if (ok || RASTER_IMAGE) {
-            ci = colors.closest_color_fast(clr);
+            if (DITHER_COLORS) {
+              if (DITHER_BLUE) colors.ditherSampler.seed(this.getPixelSeed(threshold));
+              ci = colors.closest_color(clr);
+            } else {
+              ci = colors.closest_color_fast(clr);
+            }
           }
           
           if (ok > 0) {
@@ -937,8 +954,7 @@ define([
 
           clr1[0] = clr[0]; clr1[1] = clr[1]; clr1[2] = clr[2];
           
-          //XXX re-enable me
-          if (DITHER_COLORS && (!RASTER_IMAGE || RASTER_MODE != RASTER_MODES.CMYK)) {
+          if (DITHER_COLORS && (RASTER_IMAGE && RASTER_MODE != RASTER_MODES.CMYK)) {
             //igx = ~~((x*0.5+0.5)*size);
             //igy = ~~((y*0.5+0.5)*size);
             
@@ -1170,6 +1186,24 @@ define([
       this.points = [];
       this.errgrid.fill(0, 0, this.errgrid.length);
       
+      if (_appstate.image !== undefined && _appstate.image.data !== undefined) {
+        this.sampler = sampler.sampler;
+        this.image = _appstate.image;
+        
+        if (this.image.data.orig === undefined) {
+          this.image.data.orig = this.image.data.data.slice(0, this.image.data.data.length);
+        }
+        
+        this.image.fdata = sampler.debandImage({
+          width  : this.image.data.width,
+          height : this.image.data.height,
+          fdata  : new Float32Array(this.image.data.orig)
+        }).fdata;
+        
+        //this.image.data.data.fill(0, 0, this.image.data.data.length);
+        sampler.fdataToData8(this.image.fdata, this.image.data.data);
+      }
+      
       redraw_all();
     },
     
@@ -1282,8 +1316,8 @@ define([
       the finite difference width by how small the derivative
       is
       */
-      for (let step=0; step<3; step++) {
-        let df = 4/isize;
+      for (let step=0; step<1; step++) {
+        let df = 18/isize;
 
         if (step) {
           let mag = Math.sqrt(dx*dx + dy*dy) / Math.sqrt(2.0);
@@ -1293,7 +1327,7 @@ define([
           }
           
           mag = 1.0 - mag;
-          mag = Math.pow(mag, 2.0);
+          mag = Math.pow(mag, 4.0);
 
           let a = Math.pow(4, step);
           let b = Math.pow(4, (step+1));
@@ -1703,7 +1737,7 @@ define([
       //*/
       
       let p = [0, 0, 0];
-      const searchfac = ANISOTROPY ? 3.0 : 3.0;
+      const searchfac = ANISOTROPY ? 4.0 : 3.0;
       const sqrt3 = Math.sqrt(3.0);
 
       maxrad = this.calc_radii();
@@ -1745,6 +1779,7 @@ define([
       
       function distmetric(pi1, pi2) {
         let x1 = ps[pi1], y1 = ps[pi1+1], x2=ps[pi2], y2 = ps[pi2+1];
+        let gen1 = ps[pi1+PLVL], gen2=ps[pi2+PLVL], r1=ps[pi1+PRADIUS2], r2=ps[pi2+PRADIUS2];
         
         if (ANISOTROPY) {
           let dx = x1-x2, dy = y1-y2;
@@ -1884,7 +1919,7 @@ define([
         
         let w = 1.0 - dis / searchr;
         //w = w*w*(3.0 - 2.0*w);
-        w = Math.pow(w, 4.0);
+        w = Math.pow(w, ANISOTROPY ? 6.0 : 4.0);
         
         //*
         //go a bit above top radius to avoid gaps from not having the perfect number of points

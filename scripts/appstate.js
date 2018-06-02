@@ -124,6 +124,10 @@ define([
     
     draw() {
       this.drawer.draw(this.g);
+      
+      if (SHOW_IMAGE && this.image !== undefined && this.image.data !== undefined) {
+        this.g.putImageData(this.image.data, 25, 25);
+      }
     }
     
     on_keydown(e) {
@@ -345,251 +349,6 @@ define([
         console.log("Failed to cache image data");
       }
       
-      console.log("make image sampler");
-      
-      var data = img.data;
-      
-      var min = Math.min, max = Math.max, sqrt = Math.sqrt;
-      var fract = Math.fract, tent = Math.tend, pow = Math.pow;
-      
-      var asp = img.width / img.height;
-      var this2 = this;
-      
-      var sampler_ret = [0, 0, 0, 0];
-      var one255 = 1.0/255.0;
-      
-      var lab_to_rgb = colors.lab_to_rgb;
-      var rgb_to_lab = colors.rgb_to_lab;
-      
-      this.bluenoise.sampler = function sampler(x, y, size, rad, no_filter) {
-        x = (x*0.5)+0.5;
-        y = (y*0.5)+0.5;
-        
-        /*
-        sampler_ret[0] = sampler_ret[1] = sampler_ret[2] = 0;
-        sampler_ret[3] = 1;
-        
-        //return colors.lab_to_rgb(100, 0, -80);
-        sampler_ret[0] = 0;
-        sampler_ret[1] = 2;
-        sampler_ret[2] = 0.8;
-        return sampler_ret;//*/
-        
-        //var use_lab = x > 0.5;
-        //use_lab = use_lab && (SHARPEN_LUMINENCE||USE_LAB);
-        
-        var use_lab = (SHARPEN_LUMINENCE||USE_LAB);
-        
-        x = min(max(x, 0.0), 0.99999999);
-        y = min(max(y, 0.0), 0.99999999);
-        
-        if (asp > 1.0) {
-          y *= asp;
-        } else {
-          x /= asp;
-        }
-        
-        var sum = 0.0;
-        var tot = 0.0;
-        
-        if (NO_IMAGE_FILTER)
-          no_filter=1;
-        
-        if (no_filter) {
-          var ix = ~~(x*img.width);
-          var iy = ~~(y*img.height);
-          var ret = sampler_ret;
-          
-          if (ix < 0 || iy < 0 || ix >= img.width || iy >= img.height) {
-            //discard sample if out of image bounds
-            ret[0] = ret[1] = ret[2] = ret[3] = -1;
-            return ret;
-          }
-          
-          var idx = ~~((iy*img.width+ix)*4);
-          var a = data.data[idx+3]*one255;
-          
-          if (a < 0.05) {
-            //discard sample if on transparent pixel
-            ret[0] = ret[1] = ret[2] = ret[3] = -1;
-            return ret;
-          }
-          
-          ret[0] = data.data[idx]*one255;
-          ret[1] = data.data[idx+1]*one255;
-          ret[2] = data.data[idx+2]*one255;
-          ret[3] = data.data[idx+3]*one255;
-          
-          return ret;
-        }
-        
-        var filterw = img.width/this2.bluenoise.gridsize;
-        var filterh = img.height/this2.bluenoise.gridsize;
-        var filter = Math.max(filterw*0.5, filterh*0.5)*1.5+2;
-        
-        if (isNaN(filter)) {
-          //throw new Error("'filter' was NaN in sampler!");
-          console.log("EEEK! 'filter' was NaN in sampler!", img.width, img.height,
-                      this2.bluenoise.gridsize);
-        }
-        
-        //filter = isNaN(filter) ? 3.0 : filter;
-        
-        var fwid = Math.ceil(filter);
-        fwid = Math.max(fwid, 4.0);
-        
-        if (no_filter) {
-          totsample = 3;
-          fwid = 1;
-          filter = 1.0;
-        } else if (!SHARPEN) {
-          fwid = 1;
-          filter = 1;
-          totsample = 1;
-        }
-        
-        var totsample=fwid*fwid;
-        var totsampled = 0;
-        
-        var sumr=0, sumg=0, sumb=0, suma=0;
-        var totr=0, totg=0, totb=0, tota=0;
-        
-        window._totsample = totsample;
-        
-        var weights = cconst.get_sharpen_filter(fwid, SHARPNESS), weights2;
-        if (use_lab) {
-          weights2 = cconst.get_sharpen_filter(fwid, 0.45);
-        }
-        
-        for (var i=0; i<totsample; i++) {
-          var fwid2 = fwid == 1 ? 1 : fwid-1;
-          var xoff = ((i) % fwid)/fwid2;
-          var yoff = (~~((i)/fwid))/fwid2;
-          
-          xoff -= 0.5;
-          yoff -= 0.5;
-          
-          var w = weights[i];
-          
-          xoff *= filter*(1.0/img.width);
-          yoff *= filter*(1.0/img.height);
-          
-          var x2 = x+xoff;
-          var y2 = y+yoff;
-          
-          if (x2 < 0 || x2 >= 1.0) {
-            continue;
-          }
-          if (y2 < 0 || y2 >= 1.0) {
-            continue;
-          }
-          
-          totsampled++;
-          
-          var ix = ~~(x2*img.width);
-          var iy = ~~(y2*img.height);
-          
-          var idx = (iy*img.width+ix)*4;
-          
-          var r = (data.data[idx]/255);
-          var g = (data.data[idx+1]/255);
-          var b = (data.data[idx+2]/255);
-          var a = 1.0-(data.data[idx+3]/255);
-          
-          r = TONE_CURVE.evaluate(r);
-          g = TONE_CURVE.evaluate(g);
-          b = TONE_CURVE.evaluate(b);
-          
-          //un-srgb
-          
-          if (use_lab) {
-            var lab = rgb_to_lab(r, g, b);
-            r = lab[0], g = lab[1], b = lab[2];
-          }
-          
-          //two options: either blend color with white using alpha,
-          //or multiply with alpha;
-          
-          //blend with white?
-          /*
-          r += (1.0 - r)*a;
-          g += (1.0 - g)*a;
-          b += (1.0 - b)*a;
-          //*/
-          
-          //mul with alpha.  we're assuming they're not already premul
-          if (use_lab) {
-            r *= 1.0 - a;
-          } else {
-            r *= 1.0-a;
-            g *= 1.0-a;
-            b *= 1.0-a;
-          }
-          
-          if (a > 0.05) {
-            sampler_ret[0] = -1;
-            
-            return sampler_ret;
-          }
-          
-          var w2 = (use_lab && SHARPEN_LUMINENCE) ? weights2[i] : w;
-          //w=w2=1;
-          
-          if (totsample == 1) {
-            w = w2 = 1.0;
-          }
-          
-          sumr += r*w;
-          sumg += g*w2;
-          sumb += b*w2;
-          suma += a*w;
-          
-          totr += w;
-          totg += w2;
-          totb += w2;
-          tota += w;
-          
-          //break;
-        }
-        
-        if (!totsampled) {
-          sampler_ret[0] = -1;
-          return sampler_ret; //discard
-        }
-        
-        sumr /= totr != 0.0 ? totr : 1.0;
-        sumg /= totg != 0.0 ? totg : 1.0;
-        sumb /= totb != 0.0 ? totb : 1.0;
-        suma /= tota != 0.0 ? tota : 1.0;
-        
-        if (use_lab) {
-          var rgb = lab_to_rgb(sumr, sumg, sumb);
-          
-          sumr = rgb[0];
-          sumg = rgb[1];
-          sumb = rgb[2];
-        }
-        
-        sampler_ret[0] = Math.min(Math.max(sumr, 0.0), 1.0);
-        sampler_ret[1] = Math.min(Math.max(sumg, 0.0), 1.0);
-        sampler_ret[2] = Math.min(Math.max(sumb, 0.0), 1.0);
-        sampler_ret[3] = Math.min(Math.max(suma, 0.0), 1.0);
-        
-        //var inten = sampler_ret[0]*0.2126 + sampler_ret[1]*0.7152 + sampler_ret[2]*0.0722;
-        
-        //if (inten > 0.85) {
-        //  sampler_ret[0] = -1; //discard sample;
-        //}
-        //var rr = sampler_ret;
-        //var inten = 0.2126*rr[0] + 0.7152*rr[1] + 0.0722*rr[2];
-        
-        //if (inten > 0.9){
-          //sampler_ret[0] = -1;
-        //}
-        
-        return sampler_ret;
-      }
-      
       this.reset();
       window.redraw_all();
     }
@@ -608,17 +367,19 @@ define([
       
       window.gui = gui;
       
-      gui.button('load_image', "Load Image", function() {
+      let cpanel = gui.panel("Actions");
+      
+      cpanel.button('load_image', "Load Image", function() {
         var input = document.getElementById("input");
         input.click();
       });
       
-      gui.button('load_mask', "Load Mask", function() {
+      cpanel.button('load_mask', "Load Mask", function() {
         var input = document.getElementById("input2");
         input.click();
       });
       
-      gui.button("reset", "Reset", function() {
+      cpanel.button("reset", "Reset", function() {
         colors.gen_colors();
         _appstate.init();
         _appstate.reset();
@@ -626,17 +387,17 @@ define([
         redraw_all();
       });
       
-      gui.button("step", "Generate Points", function() {
+      cpanel.button("step", "Generate Points", function() {
         _appstate.bluenoise.step();
         redraw_all();
       });
       
-      gui.button("relax", "Relax", () => {
+      cpanel.button("relax", "Relax", () => {
         _appstate.bluenoise.relax();
         redraw_all();
       });
       
-      gui.button("relax_loop", "Toggle Relax Loop", () => {
+      cpanel.button("relax_loop", "Toggle Relax Loop", () => {
         if (_appstate.relaxtimer !== undefined) {
           console.log("stopping timer");
           
@@ -652,17 +413,19 @@ define([
         }, 100);
       });
 
-      var panel = gui.panel("Settings");
-      
-      panel.slider("DIMEN", "Density", 32, 1, 2048, 1, true);
-      panel.slider("STEPS", "Points Per Step", 32, 1, 50000, 1, true);
-      panel.slider("DRAW_RMUL", "Point Size", 1.0, 0.1, 8.0, 0.01, false, true);
-      panel.slider("RAND_FAC", "Added Random", 0.0, 0.0, 3.0, 0.005, false, true);
-      
-      panel.slider("RELAX_SPEED", "Relax Speed", 1.0, 0.001, 8.0, 0.001, true);
+      var spanel = gui.panel("Settings");
+      var panel = gui;
 
-      panel.check("SHOW_KDTREE", "Show kdtree");
-      panel.check("SCALE_POINTS", "Radius Scale");
+      spanel.slider("DIMEN", "Density", 32, 1, 2048, 1, true);
+      spanel.slider("STEPS", "Points Per Step", 32, 1, 50000, 1, true);
+      spanel.slider("DRAW_RMUL", "Point Size", 1.0, 0.1, 8.0, 0.01, false, true);
+      spanel.slider("RAND_FAC", "Added Random", 0.0, 0.0, 3.0, 0.005, false, true);
+      
+      spanel.slider("RELAX_SPEED", "Relax Speed", 1.0, 0.001, 8.0, 0.001, true);
+
+      spanel.check("SHOW_KDTREE", "Show kdtree");
+      spanel.check("SCALE_POINTS", "Radius Scale");
+      spanel.check('TRI_MODE', "Triangle Mode");
       
       let apanel = panel.panel("Stick Mode")
       apanel.check("ANISOTROPY", "Flow Relaxation");
@@ -674,9 +437,12 @@ define([
       apanel.slider("ANIS_W2", "W2", 0.0, -2.0, 16.0, 0.0001, false, false);
       apanel.close();
       
-      panel.check('TRI_MODE', "Triangle Mode");
+      let dpanel = panel.panel("Dithering");
+      dpanel.check("DITHER_COLORS", "Dither Colors");
+      dpanel.slider("DITHER_RAND_FAC", "Dither Random", 0.0, 0.0, 3.0,0.005, false, false);
+      dpanel.check("DITHER_BLUE", "Blue Noise");
+      dpanel.slider("DITHER_BLUE_STEPS", "Dither Uniformity", 6.0, 0.0, 256.0, 0.005, true, false);
       
-      panel.slider("DITHER_RAND_FAC", "Dither Random", 0.0, 0.0, 3.0,0.005, false);
       panel.check("SHARPEN", "Sharpen");
       panel.slider("SHARPNESS", "Sharpness", 0.5, 0.0, 3.5, 0.001, false);
       panel.check('SHARPEN_LUMINENCE', 'Luminence Only');
@@ -707,7 +473,7 @@ define([
       var panel3 = panel2.panel("Tone Curve");
       window.TONE_CURVE = panel3.curve("TONE_CURVE", "Tone Curve", cconst.DefaultCurves.TONE_CURVE).curve;
       
-      panel2.check("DITHER_COLORS", "Dither Colors");
+      panel2.check("SHOW_IMAGE", "Show Image");
       panel2.check("SHOW_COLORS", "Show Colors");
       panel2.check("ADAPTIVE_COLOR_DENSITY", "Denser For Color")
       panel2.check("HEXAGON_MODE", "Hexagonish");
