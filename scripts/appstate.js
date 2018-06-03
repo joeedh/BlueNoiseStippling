@@ -128,6 +128,10 @@ define([
       if (SHOW_IMAGE && this.image !== undefined && this.image.data !== undefined) {
         this.g.putImageData(this.image.data, 25, 25);
       }
+      
+      if (SHOW_DVIMAGE && this.bluenoise.dvimage !== undefined) {
+        this.g.putImageData(this.bluenoise.dvimage, 25, 25);
+      }
     }
     
     on_keydown(e) {
@@ -392,13 +396,15 @@ define([
         redraw_all();
       });
       
-      cpanel.button("relax", "Relax", () => {
+      let rpanel = cpanel.panel("Relaxation");
+      rpanel.button("relax", "Relax", () => {
         _appstate.bluenoise.relax();
         redraw_all();
       });
       
-      cpanel.button("relax_loop", "Toggle Relax Loop", () => {
+      let relaxbut = rpanel.button("relax_loop", "Start Loop", () => {
         if (_appstate.relaxtimer !== undefined) {
+          relaxbut.domElement.parentNode.children[0].innerHTML = "Start Loop";
           console.log("stopping timer");
           
           window.clearInterval(_appstate.relaxtimer);
@@ -407,12 +413,22 @@ define([
           return;
         }
         
+        relaxbut.domElement.parentNode.children[0].innerHTML = "Stop Loop";
+        
         _appstate.relaxtimer = window.setInterval(() => {
           _appstate.bluenoise.relax();
           redraw_all();
         }, 100);
       });
-
+      
+      window.relaxbut = relaxbut;
+      
+      rpanel.check("ANISOTROPY", "Anisotropic");
+      rpanel.slider("FILTERWID", "Filter Wid", 3.0, 0.001, 7.0, false, false);
+      rpanel.slider("ANISOTROPY_FILTERWID", "AnisotropicFilterWid", 3.0, 0.001, 7.0, false, false);
+      rpanel.slider("RELAX_SPEED", "Relax Speed", 1.0, 0.001, 8.0, 0.001, true);
+      rpanel.check("RELAX_UPDATE_VECTORS", "Update Vectors");
+      
       var spanel = gui.panel("Settings");
       var panel = gui;
 
@@ -420,15 +436,12 @@ define([
       spanel.slider("STEPS", "Points Per Step", 32, 1, 50000, 1, true);
       spanel.slider("DRAW_RMUL", "Point Size", 1.0, 0.1, 8.0, 0.01, false, true);
       spanel.slider("RAND_FAC", "Added Random", 0.0, 0.0, 3.0, 0.005, false, true);
-      
-      spanel.slider("RELAX_SPEED", "Relax Speed", 1.0, 0.001, 8.0, 0.001, true);
 
       spanel.check("SHOW_KDTREE", "Show kdtree");
       spanel.check("SCALE_POINTS", "Radius Scale");
       spanel.check('TRI_MODE', "Triangle Mode");
       
       let apanel = panel.panel("Stick Mode")
-      apanel.check("ANISOTROPY", "Flow Relaxation");
       apanel.check("DRAW_STICKS", "Draw Sticks");
       apanel.slider("STICK_ROT", "StickRot", 0.0, -Math.PI, Math.PI, 0.0001, false, true);
       apanel.slider("STICK_WIDTH", "StickWidth", 0.0, 0.0001, 12.0, 0.0001, false, true);
@@ -442,6 +455,10 @@ define([
       dpanel.slider("DITHER_RAND_FAC", "Dither Random", 0.0, 0.0, 3.0,0.005, false, false);
       dpanel.check("DITHER_BLUE", "Blue Noise");
       dpanel.slider("DITHER_BLUE_STEPS", "Dither Uniformity", 6.0, 0.0, 256.0, 0.005, true, false);
+      
+      panel.check("DEBAND_IMAGE", "Deband");
+      panel.slider("DEBAND_RADIUS", "Deband Radius", 15, 1, 512, 1, true, false);
+      panel.slider("DEBAND_BLEND", "Deband Blend", 0.5, 0, 1, 0.0001, false, false);
       
       panel.check("SHARPEN", "Sharpen");
       panel.slider("SHARPNESS", "Sharpness", 0.5, 0.0, 3.5, 0.001, false);
@@ -474,6 +491,7 @@ define([
       window.TONE_CURVE = panel3.curve("TONE_CURVE", "Tone Curve", cconst.DefaultCurves.TONE_CURVE).curve;
       
       panel2.check("SHOW_IMAGE", "Show Image");
+      panel2.check("SHOW_DVIMAGE", "Show DvImage");
       panel2.check("SHOW_COLORS", "Show Colors");
       panel2.check("ADAPTIVE_COLOR_DENSITY", "Denser For Color")
       panel2.check("HEXAGON_MODE", "Hexagonish");
@@ -508,7 +526,7 @@ define([
       panel2.check("SIMPLE_PALETTE", "Simple Palette");
       panel2.check("BG_PALETTE", "Black/white only");
       
-      var load_value = 'built-in';
+      var load_value = 'built-in-smooth';
       
       panel2 = panel.panel("Blue Noise Mask");
       panel2.listenum(undefined, 'Mask', {
@@ -519,9 +537,8 @@ define([
         'Large 1 (only 16 levels)' : 'mask_large.png',
         'Small 1 (only 16 levels)' : 'mask.png',
         'Weighted Sample Removal'  : 'weighted_sample_removal_mask_1.png',
-      }, 'built-in', function(value) {
+      }, 'built-in-smooth', function(value) {
         load_value = value;
-        console.log("yay, value", value);
       });
       
       panel2.button('load_mask', 'Load', function() {

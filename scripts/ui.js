@@ -330,6 +330,10 @@ define([
       this.on_mousemove = this.on_mousemove.bind(this);
       this.on_mouseup = this.on_mouseup.bind(this);
       this.on_keydown = this.on_keydown.bind(this);
+      this.on_touchstart = this.on_touchstart.bind(this);
+      this.on_touchmove = this.on_touchmove.bind(this);
+      this.on_touchend = this.on_touchend.bind(this);
+      this.on_touchcancel = this.on_touchcancel.bind(this);
     }
     
     remove(p) {
@@ -445,7 +449,8 @@ define([
       this.hightlight = undefined;
       this.eidgen = util.IDGen.fromJSON(obj.eidgen);
       this.recalc = 1;
-      
+      this.mpos = [0, 0];
+
       if (obj.deg != undefined) 
         this.deg = obj.deg;
       
@@ -495,7 +500,7 @@ define([
     regen_hermite(steps) {
       console.log("building spline approx");
       
-      steps = steps == undefined ? 120 : steps;
+      steps = steps == undefined ? 240 : steps;
       
       this.hermite = new Array(steps);
       var table =this.hermite;
@@ -638,12 +643,12 @@ define([
       var table = this.hermite;
       var s = t*(table.length/4);
 
-      var i = ~~s;
+      var i = Math.floor(s);
       s -= i;
 
       i *= 4;
       
-      return table[i];// + (table[i+3] - table[i])*s; 
+      return table[i] + (table[i+3] - table[i])*s; 
     }
 
     _evaluate(t) {
@@ -721,6 +726,57 @@ define([
       return this.uidata !== undefined;
     }
 
+    on_touchstart(e) {
+      this.mpos[0] = e.touches[0].pageX;
+      this.mpos[1] = e.touches[0].pageY;
+
+      this.on_mousedown({
+        x          : e.touches[0].pageX,
+        y          : e.touches[0].pageY,
+        button     : 0,
+        shiftKey   : e.shiftKey,
+        altKey     : e.altKey,
+        ctrlKey    : e.ctrlKey,
+        isTouch    : true,
+        commandKey : e.commandKey
+      });
+    }
+    
+    on_touchmove(e) {
+      this.mpos[0] = e.touches[0].pageX;
+      this.mpos[1] = e.touches[0].pageY;
+
+      this.on_mousemove({
+        x          : e.touches[0].pageX,
+        y          : e.touches[0].pageY,
+        button     : 0,
+        shiftKey   : e.shiftKey,
+        altKey     : e.altKey,
+        ctrlKey    : e.ctrlKey,
+        commandKey : e.commandKey,
+        preventDefault : () => e.preventDefault(),
+        stopPropagation : () => e.stopPropagation(),
+        isTouch : true,
+      });
+    }
+
+    on_touchend(e) {
+      this.on_mouseup({
+        x          : this.mpos[0],
+        y          : this.mpos[1],
+        button     : 0,
+        shiftKey   : e.shiftKey,
+        altKey     : e.altKey,
+        ctrlKey    : e.ctrlKey,
+        isTouch : true,
+        commandKey : e.commandKey
+      });
+    }
+    
+    on_touchcancel(e) {
+      this.on_touchend(e);
+    }
+    
     makeGUI(dom, gui, canvas, g, draw_transform) {
       this.uidata = {
         start_mpos  : new Vector2(),
@@ -733,6 +789,11 @@ define([
         transforming: false,
         draw_trans  : draw_transform
       };
+      
+      canvas.addEventListener("touchstart", this.on_touchstart);
+      canvas.addEventListener("touchmove", this.on_touchmove);
+      canvas.addEventListener("touchend", this.on_touchend);
+      canvas.addEventListener("touchcancel", this.on_touchcancel);
       
       canvas.addEventListener("mousedown", this.on_mousedown);
       canvas.addEventListener("mousemove", this.on_mousemove);
@@ -777,6 +838,11 @@ define([
 
         console.log("removing event handlers for bspline curve");
         
+        canvas.removeEventListener("touchstart", this.on_touchstart);
+        canvas.removeEventListener("touchmove", this.on_touchmove);
+        canvas.removeEventListener("touchend", this.on_touchend);
+        canvas.removeEventListener("touchcancel", this.on_touchcancel);
+
         canvas.removeEventListener("mousedown", this.on_mousedown);
         canvas.removeEventListener("mousemove", this.on_mousemove);
         canvas.removeEventListener("mouseup", this.on_mouseup);
@@ -803,6 +869,10 @@ define([
       this.uidata.start_mpos.load(this.transform_mpos(e.x, e.y));
       this.fastmode = true;
       
+      var mpos = this.transform_mpos(e.x, e.y);
+      var x=mpos[0], y = mpos[1];
+      this.do_highlight(x, y);
+      
       if (this.points.highlight != undefined) {
         if (!e.shiftKey) {
           for (var i=0; i<this.points.length; i++) {
@@ -821,7 +891,7 @@ define([
         
         this.redraw();
         return;
-      } else {
+      } else if (!e.isTouch) {
         var p = this.add(this.uidata.start_mpos[0], this.uidata.start_mpos[1]);
         this.points.highlight = p;
 
@@ -833,8 +903,6 @@ define([
         this.uidata.transforming = true;
         this.uidata.transpoints = [this.points.highlight];
         this.uidata.transpoints[0].startco.load(this.uidata.transpoints[0]);
-        
-        this
       }
     }
     
@@ -892,6 +960,10 @@ define([
     
     on_mousemove(e) {
       //console.log("bspline mmove");
+      
+      if (e.isTouch && this.uidata.transforming) {
+        e.preventDefault();
+      }
       
       var mpos = this.transform_mpos(e.x, e.y);
       var x=mpos[0], y = mpos[1];
@@ -1694,6 +1766,7 @@ define([
       this.setting_id = setting_id;
       
       this._closed = false;
+      this.mpos = [0, 0];
       
       this.domparent = undefined;
       this.canvas = undefined;

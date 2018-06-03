@@ -10,6 +10,23 @@ define([
     for (let i=0; i<fdata.length; i += 4) {
       for (let k=0; k<4; k++) {
         let f = fdata[i+k];
+        
+        /*
+        let ix = (i/4) % _appstate.image.width;
+        let iy = ~~((i/4) / _appstate.image.width);
+        let x = ix / _appstate.image.width;
+        let y = iy / _appstate.image.height;
+
+        x = Math.fract(x);
+
+        f = x*0.1+0.17;
+        f *= 255;
+        
+        if (k == 3)
+          f = fdata[i+k];
+
+        //f = ~~f;
+        //*/
 
         f += (Math.random()-0.5)*2.0;
 
@@ -39,7 +56,27 @@ define([
       let idx1 = (iy*image.width + ix)*4, idx2 = i;
 
       for (let j=0; j<4; j++) {
-        fdata1[idx1+j] = fdata1[idx1+j] + (fdata2[idx2+j] - fdata1[idx1+j])*0.5;
+        let f = fdata1[idx1+j] + (fdata2[idx2+j] - fdata1[idx1+j])*DEBAND_BLEND;
+
+        /*
+        let fract1 = Math.fract(fdata1[idx1+j]);
+        let fract2 = Math.fract(fdata2[idx2+j]);
+        
+        f += fract1 + (fract2 - fract1)*0.75;
+        //f = Math.floor(fdata1[idx1+j]) + f;
+        
+        //*/
+
+        //*
+        f /= 255;
+        let f2 = f*f*(3.0 - 2.0*f);
+        f2 = f2*f2*(3.0 - 2.0*f2);
+        f = f + (f2 - f)*0.3;
+        f *= 255;
+        //*/
+        
+        f = j == 3 ? fdata2[idx2+j] : f;
+        fdata1[idx1+j] = f;
       }
     }
 
@@ -134,7 +171,7 @@ define([
       fdata[i] = idata[i];
     }
     
-    let msize = 15;
+    let msize = DEBAND_RADIUS;
 
     let sumr = 0, sumg=0, sumb=0;
     
@@ -225,9 +262,24 @@ define([
   var lab_to_rgb = colors.lab_to_rgb;
   var rgb_to_lab = colors.rgb_to_lab;
   
-  exports.sampler = function sampler(x, y, size, rad, no_filter) {
+  let sampler_rets = new util.cachering(() => [0, 0, 0, 0], 512);
+  
+  exports.sampler = function sampler(x, y, size, rad, no_filter, use_debanded) {
     var img = _appstate.image;
+    let ret;
+    
+    /*
+    ret = sampler_rets.next();
+    let f = Math.sqrt(x*x + y*y)/Math.sqrt(2);
+    f = f*0.5 + 0.5;
+    
+    f = Math.floor(f*255)/255;
 
+    ret[0] = ret[1] = ret[2] = f;
+    ret[3] = 1.0;
+    return ret;
+    //*/
+    
     var asp = img.width / img.height;
     
     x = (x*0.5)+0.5;
@@ -263,12 +315,12 @@ define([
     if (NO_IMAGE_FILTER)
       no_filter=1;
     
-    let pdata = img.fdata !== undefined ? img.fdata : img.data.data;
+    let pdata = (use_debanded && img.fdata !== undefined) ? img.fdata : img.data.data;
     
     if (no_filter) {
       var ix = ~~(x*img.width);
       var iy = ~~(y*img.height);
-      var ret = sampler_ret;
+      ret = sampler_rets.next();
       
       if (ix < 0 || iy < 0 || ix >= img.width || iy >= img.height) {
         //discard sample if out of image bounds
@@ -401,9 +453,10 @@ define([
       }
       
       if (a > 0.05) {
-        sampler_ret[0] = -1;
+        ret = sampler_rets.next();
+        ret[0] = -1;
         
-        return sampler_ret;
+        return ret;
       }
       
       var w2 = (use_lab && SHARPEN_LUMINENCE) ? weights2[i] : w;
@@ -427,8 +480,10 @@ define([
     }
     
     if (!totsampled) {
-      sampler_ret[0] = -1;
-      return sampler_ret; //discard
+      ret = sampler_rets.next();
+      ret[0] = -1;
+      
+      return ret; //discard
     }
     
     sumr /= totr != 0.0 ? totr : 1.0;
@@ -443,25 +498,15 @@ define([
       sumg = rgb[1];
       sumb = rgb[2];
     }
+
+    ret = sampler_rets.next();
     
-    sampler_ret[0] = Math.min(Math.max(sumr, 0.0), 1.0);
-    sampler_ret[1] = Math.min(Math.max(sumg, 0.0), 1.0);
-    sampler_ret[2] = Math.min(Math.max(sumb, 0.0), 1.0);
-    sampler_ret[3] = Math.min(Math.max(suma, 0.0), 1.0);
+    ret[0] = Math.min(Math.max(sumr, 0.0), 1.0);
+    ret[1] = Math.min(Math.max(sumg, 0.0), 1.0);
+    ret[2] = Math.min(Math.max(sumb, 0.0), 1.0);
+    ret[3] = Math.min(Math.max(suma, 0.0), 1.0);
     
-    //var inten = sampler_ret[0]*0.2126 + sampler_ret[1]*0.7152 + sampler_ret[2]*0.0722;
-    
-    //if (inten > 0.85) {
-    //  sampler_ret[0] = -1; //discard sample;
-    //}
-    //var rr = sampler_ret;
-    //var inten = 0.2126*rr[0] + 0.7152*rr[1] + 0.0722*rr[2];
-    
-    //if (inten > 0.9){
-      //sampler_ret[0] = -1;
-    //}
-    
-    return sampler_ret;
+    return ret;
   }
   
   return exports;

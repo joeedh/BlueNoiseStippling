@@ -924,11 +924,21 @@ define([
     var dr = (c1[0]-c2[0]), dg = (c1[1]-c2[1]), db=(c1[2]-c2[2]);
     var dis = dr*dr + dg*dg + db*db;
     
-    var w1 = 0.8;
-    var w2 = 1.0;
-    var w3 = 0.4;
+    var w1 = 1.0;
+    var w2 = 0.7;
+    var w3 = 1.0;
     
-    dis = (Math.abs(dr)*w1 + Math.abs(dg)*w2 + Math.abs(db)*w3)/(w1+w2+w3);
+    let wsum = w1+w2+w3;
+    w1 /= wsum;
+    w2 /= wsum;
+    w3 /= wsum;
+
+    dr *= w1;
+    dg *= w2;
+    db *= w3;
+
+    //dis = (Math.abs(dr)*w1 + Math.abs(dg)*w2 + Math.abs(db)*w3)/(w1+w2+w3);
+    dis = Math.abs(dr) + Math.abs(dg) + Math.abs(db);
 
     //compare how saturated (close to greyscale) each color is, too
     let s1=0, s2=0;
@@ -943,12 +953,8 @@ define([
       else
         s1 = sat;
     }
-
-    dis = Math.sqrt(dr*dr + dg*dg + db*db) + 0.5*Math.abs(s1-s2);
     
-    //dis = dr*dr*w1*w1 + dg*dg*w2*w2 + db*db*w3*w3;
-    //dis = dis == 0.0 ? 0.0 : Math.sqrt(dis)/((w1+w2+w3)*Math.sqrt(3.0));
-    
+    dis += Math.abs(s1-s2)*0.2;
     /*
     if (c2[0] == c2[1] && c2[0] == c2[2]) {
       var dis2 = dr*dr + dg*dg + db*db;
@@ -958,8 +964,8 @@ define([
     }//*/
     
     if (DITHER_COLORS) { //small random factor
-      dis += (exports.ditherSampler.random()-0.5)*DITHER_RAND_FAC*dis;
-      dis = Math.max(dis, 0.0);
+      dis += (exports.ditherSampler.random() - 0.5)*DITHER_RAND_FAC;
+      //dis = Math.max(dis, 0.0);
     }
   
     return dis;

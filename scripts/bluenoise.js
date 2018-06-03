@@ -506,7 +506,7 @@ define([
     },
 
     function getPixelSeed(threshold) {
-      //threshold = threshold**0.5;
+      //threshold = threshold**2;
       return ~~(threshold * DITHER_BLUE_STEPS); //colors.colors.length * 0.25);
     },
 
@@ -1194,14 +1194,16 @@ define([
           this.image.data.orig = this.image.data.data.slice(0, this.image.data.data.length);
         }
         
-        this.image.fdata = sampler.debandImage({
-          width  : this.image.data.width,
-          height : this.image.data.height,
-          fdata  : new Float32Array(this.image.data.orig)
-        }).fdata;
+        this.image.fdata = new Float32Array(this.image.data.orig);
+        
+        if (DEBAND_IMAGE) {
+          this.image.fdata = sampler.debandImage(this.image).fdata;
+        }
+        
+        this.dvimage = new ImageData(this.image.width, this.image.height);
         
         //this.image.data.data.fill(0, 0, this.image.data.data.length);
-        sampler.fdataToData8(this.image.fdata, this.image.data.data);
+        sampler.fdataToData8(this.image.fdata, this.dvimage.data);
       }
       
       redraw_all();
@@ -1317,7 +1319,7 @@ define([
       is
       */
       for (let step=0; step<1; step++) {
-        let df = 18/isize;
+        let df = 8/isize;
 
         if (step) {
           let mag = Math.sqrt(dx*dx + dy*dy) / Math.sqrt(2.0);
@@ -1335,7 +1337,7 @@ define([
           df = (a + (b - a)*mag)/isize;
         }
 
-        let clr = this.sampler(x, y, this.gridsize, 1.0);
+        let clr = this.sampler(x, y, this.gridsize, 1.0, undefined, true);
 
         if (clr[0] < 0) {
           return; //dropped point
@@ -1343,10 +1345,10 @@ define([
         
         let f1 = (clr[0]+clr[1]+clr[2])/3.0;
 
-        clr = this.sampler(x+df, y, this.gridsize, 1.0);
+        clr = this.sampler(x+df, y, this.gridsize, 1.0, undefined, true);
         let f2 = (clr[0]+clr[1]+clr[2])/3.0;
 
-        clr = this.sampler(x, y+df, this.gridsize, 1.0);
+        clr = this.sampler(x, y+df, this.gridsize, 1.0, undefined, true);
         let f3 = (clr[0]+clr[1]+clr[2])/3.0;
 
         dx = (f2 - f1) / df;
@@ -1737,7 +1739,7 @@ define([
       //*/
       
       let p = [0, 0, 0];
-      const searchfac = ANISOTROPY ? 4.0 : 3.0;
+      const searchfac = ANISOTROPY ? ANISOTROPY_FILTERWID : FILTERWID;
       const sqrt3 = Math.sqrt(3.0);
 
       maxrad = this.calc_radii();
@@ -1984,7 +1986,7 @@ define([
         sumdx /= sumw;
         sumdy /= sumw;
         
-        let fac = RELAX_SPEED*0.0625*(ANISOTROPY ? 5.0 : 1.0);
+        let fac = RELAX_SPEED*0.0625*(ANISOTROPY ? 2.0 : 1.0);
         if (ps[pi1+PBAD] > 0) {
           fac *= 0.15;
         }
@@ -2007,6 +2009,13 @@ define([
 
         ps[pi1] = Math.min(Math.max(ps[pi1], -1.0), 1.0);
         ps[pi1+1] = Math.min(Math.max(ps[pi1+1], -1.0), 1.0);
+        
+      }
+
+      if (RELAX_UPDATE_VECTORS) {
+        for (let pi1=0; pi1<ps.length; pi1 += PTOT) {
+          this.calc_theta(pi1);
+        }
       }
       
       if (TRI_MODE) {
