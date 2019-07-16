@@ -140,7 +140,8 @@ define([
           
           var idx = (riy*raster_image.width+rix)*4;
           
-          var f = clr[0]*0.2 + clr[1]*0.7 + clr[2]*0.1;
+          var f = this.calcIntensity(clr[0], clr[1], clr[2]);
+          //var f = clr[0]*0.2 + clr[1]*0.7 + clr[2]*0.1; <-- hrm, weird weights. . .
           
           var fac=0, fac2=0, fac3=0;
           var tot=0, tot2=0, tot3=0;
@@ -316,8 +317,9 @@ define([
         return undefined; //sampler requested we discard this sample
       }
 
-      var f = clr[0]*clr[0] + clr[1]*clr[1] + clr[2]*clr[2];
-      f = f != 0.0 ? Math.sqrt(f) / sqrt3 : 0.0;
+      var f = this.calcIntensity(clr[0], clr[1], clr[2]);
+      //var f = clr[0]*clr[0] + clr[1]*clr[1] + clr[2]*clr[2];
+      //f = f != 0.0 ? Math.sqrt(f) / sqrt3 : 0.0;
 
       var sat = Math.abs(1.0-clr[0]) +  Math.abs(1.0-clr[1]) +  Math.abs(1.0-clr[2]);
       sat /= 3.0;
@@ -398,10 +400,10 @@ define([
       
       points[pi] = x;
       points[pi+1] = y;
-      points[pi+2] = start_r//*(1.0 + 0.25*(sat));
+      points[pi+PRADIUS] = start_r//*(1.0 + 0.25*(sat));
       points[pi+PINTEN] = finten;
-      points[pi+4] = ci;
-      //points[pi+5] = lvl;
+      points[pi+PID] = ci;
+      //points[pi+PLVL] = lvl;
       points[pi+PRADIUS2] = -1;//points[pi+PRADIUS];
 
       points[pi+POX] = points[pi+POLDX] = points[pi];
@@ -510,6 +512,649 @@ define([
       return ~~(threshold * DITHER_BLUE_STEPS); //colors.colors.length * 0.25);
     },
 
+    function calcIntensity(r, g, b) {
+      let f = colors.rgb_to_intensity(r, g, b);
+      
+      if (window.DENSITY_CURVE !== undefined) {
+        f = window.DENSITY_CURVE.evaluate(f);
+      }
+      
+      return f;
+    },
+    
+    function step_diffusion(custom_steps, cur) {
+      let steps = custom_steps === undefined ? window.STEPS : custom_steps;
+      
+      var raster_image = this.raster_image;
+      var rdata = raster_image != undefined ? raster_image.data : undefined;
+      
+      if (this.sampler == undefined) {
+        console.log("image hasn't loaded yet");
+      }
+      
+      var grid = this.errgrid;
+      var size = this.gridsize;
+      var iw = DIMEN, ih=DIMEN;
+      
+      var ix, iy;
+      var oks = new Array(colors.colors.length);
+      var clrws = new Array(colors.colors.length);
+      var clridxs = new Array(colors.colors.length);
+      var wcolors = colors.colors;
+      var totwclrs = colors.colors.length;
+      
+      var clr1 = [0.5, 0.5, 0.5];
+      var filter = this.filter;
+      var points = this.points;
+      var start_r = this.start_r;
+      var fil = filter.get(f);
+      var sqrt3 = Math.sqrt(3.0);
+      var size = this.gridsize;
+      
+      var do_clrw = 0; //attempt at barycentric coloring
+      var do_cmyk_raster = RASTER_MODE == RASTER_MODES.CMYK;
+      
+      var _dr_ret = [0, 0];
+      var nextout = [0, 0, 0, 0, 0];
+            
+      for (var si=0; si<steps; si++, cur++) {
+        if (cur >= size*size) {
+          console.log("Done.");
+          break;
+        }
+        
+        var x = cur % size;
+        var y = ~~(cur / size);
+        
+        var flip = y%2==0;
+        //flip=0;
+        
+        if (flip) {
+          x = size - x - 1;
+        }
+        
+        var gx = x, gy = y;
+        
+        var igx = x;
+        var igy = y;
+        
+        x /= size;
+        y /= size;
+        
+        x = (x-0.5)*2.0, y = (y-0.5)*2.0;
+        
+        var clr = this.sampler(x, y, size, 1.0);
+        
+        if (clr[0] < 0) {
+          continue; //sampler requested we discard this sample
+        }
+        
+        var f = this.calcIntensity(clr[0], clr[1], clr[2]);
+        //var f = (clr[0]*0.4026 + clr[1]*0.4052 + clr[2]*0.2022)*0.8;
+        //var f = clr[0]*clr[0] + clr[1]*clr[1] + clr[2]*clr[2];
+        //f = f != 0.0 ? Math.sqrt(f) / sqrt3 : 0.0;
+        
+        var sat = Math.abs(1.0-clr[0]) +  Math.abs(1.0-clr[1]) +  Math.abs(1.0-clr[2]);
+        sat /= 3.0;
+        
+        if (ADAPTIVE_COLOR_DENSITY) {
+          //scale spacing of points by saturation (how much color there is)
+          f *= Math.pow(1.0-sat, 2);
+        }
+        let finten = f;
+        
+        var rok=0, gok=0, bok=0, fok=0;
+        var finalth = 0.0;
+        
+        var fr = clr[0], fg = clr[1], fb = clr[2];
+        
+        let ci = colors.closest_color_fast(clr);
+        
+        var rasterfac = raster_image != undefined ? ~~Math.ceil(raster_image.width / this.dimen) : 1;
+        
+        function dot2(rx2, ry2, c, m, y, k) {
+          var rx = ~~(rx2/2);
+          var ry = ~~(ry2/2);
+          
+          var ax = ~~(rx2 - rx);
+          var ay = ~~(ry2 - ry);
+          
+          var size = 1;
+          var offs = cconst.get_searchoff(size);
+          
+          var ridx = (ry*raster_image.width+rx)*4;
+          var fac = 1.0;
+          
+          ridx += ax % 3;
+          
+          rdata[ridx] = 0;
+          //rdata[ridx+1] = Math.max(rdata[ridx+1]-m*fac, 0);
+          //rdata[ridx+2] = Math.max(rdata[ridx+2]-y*fac, 0);
+          //rdata[ridx+3] = 255;
+        }
+        
+        function dot(rx, ry, spotk, c, m, y, k) {
+          var f1 = (1.0-spotk);
+          if (c == m && c == y)
+            f1 = spotk;
+          
+          f1 *= 0.5;
+          
+          dot_intern(rx, ry, spotk, c, m, y, k, 0.85);
+          if (RASTER_MODE != RASTER_MODES.CMYK) {
+            return;
+          }
+          
+          f1 = 0.1;
+          dot_intern(rx-1, ry, spotk, c, m, y, k, f1);
+          dot_intern(rx, ry+1, spotk, c, m, y, k, f1);
+          dot_intern(rx+1, ry, spotk, c, m, y, k, f1);
+          dot_intern(rx, ry-1, spotk, c, m, y, k, f1);
+        }
+        
+        function dot_intern(rx, ry, spotk, c, m, y, k, alpha) {
+          alpha = alpha == undefined ? 1 : alpha;
+          
+          var size = ~~(rasterfac*0.25);
+          size = 0;
+          
+          var offs = cconst.get_spotfunc(size, spotk);
+
+          if (size == 0) {
+            var ridx = (ry*raster_image.width+rx)*4;
+            
+            rdata[ridx] = Math.max(rdata[ridx]-c*alpha, 0)//*(1.0-k);
+            rdata[ridx+1] = Math.max(rdata[ridx+1]-m*alpha, 0);
+            rdata[ridx+2] = Math.max(rdata[ridx+2]-y*alpha, 0);
+            rdata[ridx+3] = 255;
+            
+            return;
+          }
+          
+          for (var i=0; i<offs.length; i++) {
+            var rx2 = rx + offs[i][0];
+            var ry2 = ry + offs[i][1];
+            
+            if (rx2 < 0 || ry2 < 0 || rx2 >= raster_image.width || ry2 >= raster_image.height) {
+              continue;
+            }
+            
+            var ridx = (ry2*raster_image.width+rx2)*4;
+            
+            rdata[ridx] = Math.max(rdata[ridx]-c*alpha, 0)//*(1.0-k);
+            rdata[ridx+1] = Math.max(rdata[ridx+1]-m*alpha, 0);
+            rdata[ridx+2] = Math.max(rdata[ridx+2]-y*alpha, 0);
+            rdata[ridx+3] = 255;
+          }
+        }
+
+        clr1[0] = clr[0]; clr1[1] = clr[1]; clr1[2] = clr[2];
+        
+        if (DITHER_COLORS) {
+          var gidx = ~~((igy*size + igx)*3);
+                    
+          clr1[0] += grid[gidx];
+          clr1[1] += grid[gidx+1];
+          clr1[2] += grid[gidx+2];
+        
+          ci = colors.closest_color_fast(clr1);
+          colors.colors_used[ci]++;
+          
+          var clr2 = colors.colors[ci];
+
+          var dr = (clr1[0]-clr2[0]);
+          var dg = (clr1[1]-clr2[1]);
+          var db = (clr1[2]-clr2[2]);
+          
+          var sat = Math.abs(1.0-clr[0]) +  Math.abs(1.0-clr[1]) +  Math.abs(1.0-clr[2]);
+          sat /= 3.0;
+          
+          //scale color error by spacing of points
+          if (CORRECT_FOR_SPACING) {
+            var avg = (clr[0]+clr[1]+clr[2])/3.0;
+            var sat2 = Math.abs(avg-clr[0]) +  Math.abs(avg-clr[1]) +  Math.abs(avg-clr[2]);
+            sat2 /= 3.0;
+            
+            var ffac = Math.pow(1.0-f, 0.5);
+            ffac = 1.0 - f*f*sat2;
+            
+            dr *= ffac;
+            dg *= ffac;
+            db *= ffac;
+          }
+          
+          //apply error diffusion to color
+          for (var fi=0; fi<fil.length; fi++) {
+            for (var fj=0; fj<fil[fi].length; fj++) {
+              var fi2 = fi;
+              var fj2 = fj - 2;
+              
+              var igx2 = igx + (flip ? -fj2 : fj2);
+              var igy2 = igy + fi2;
+              
+              if (igx2 >= size || igy2 >= size) {
+                continue;
+              }
+              if (igx2 < 0 || igy2 < 0) {
+                continue;
+              }
+              
+              var fmul = this.filter.wrand*(this.random()-0.5);
+              fmul += (this.random()-0.5)*0.05;
+              
+              var gidx2 = (igy2*size + igx2)*3;
+
+              grid[gidx2] += fil[fi][fj]*dr + fmul;
+              grid[gidx2+1] += fil[fi][fj]*dg + fmul;
+              grid[gidx2+2] += fil[fi][fj]*db + fmul;
+              
+              grid[gidx2] = Math.min(Math.max(grid[gidx2], -1.0), 1.0);
+              grid[gidx2+1] = Math.min(Math.max(grid[gidx2+1], -1.0), 1.0);
+              grid[gidx2+2] = Math.min(Math.max(grid[gidx2+2], -1.0), 1.0);
+            }
+          }
+        } else {
+          if (ci == undefined) {
+            ci = colors.closest_color_fast(clr);
+          }
+          var clr2 = colors.colors[ci];
+          
+          if (clr2 == undefined) {
+            console.log(ci);
+            throw new Error("eek!");
+          }
+          
+          clr1[0] = clr2[0];
+          clr1[1] = clr2[1];
+          clr1[2] = clr2[2];
+          
+          var sat = Math.abs(1.0-clr2[0]) +  Math.abs(1.0-clr2[1]) +  Math.abs(1.0-clr2[2]);
+          sat /= 3.0;
+        }
+
+        var do_raster = RASTER_IMAGE && rdata != undefined;
+        if (do_raster) {
+          var clr2 = colors.colors[ci];
+          
+          var rix = ~~((x*0.5+0.5001)*raster_image.width*0.99999), riy = ~~((y*0.5+0.5001)*raster_image.height*0.99999);
+          var ridx = (riy*raster_image.width + rix)*4;
+          
+          rdata[ridx] = ~~(clr2[0]*255);
+          rdata[ridx+1] = ~~(clr2[1]*255);
+          rdata[ridx+2] = ~~(clr2[2]*255);
+          rdata[ridx+3] = 255;
+        } 
+      }
+      
+      return cur;
+    },
+    
+    function colordiffuse() {
+      let ps = this.points;
+      let tree = this.calc_kdtree();
+      var size = this.gridsize;
+      
+      let pi1, x1, y1, color1, gen1, r1;
+      
+      let errors = new Float64Array(4*ps.length/PTOT);
+      let pcolors = new Float64Array(4*ps.length/PTOT);
+      
+      errors.fill(0, 0, errors.length);
+      
+      for (let pi=0; pi<ps.length; pi += PTOT) {
+        let x = ps[pi], y = ps[pi+1];
+        
+        let i = (pi/PTOT)*4;
+        
+        let clr = this.sampler(x, y, size, 1.0);
+        
+        if (isNaN(clr[0]) || isNaN(clr[1]) || isNaN(clr[2])) {
+          console.log("NaN in sampler!");
+          clr[0] = clr[1] = clr[2] = clr[3] = 1.0;
+        }
+        
+        if (clr[0] < 0) {
+          //discard point?
+          clr[0] = clr[1] = clr[2] = 0.0;
+        }
+        
+        for (let j=0; j<4; j++) {
+          pcolors[i+j] = clr[j];
+        }
+      }
+      
+      let radius = 7.0 / Math.sqrt(ps.length/PTOT+1);
+      
+      let callback = (pi2) => {
+        if (pi2 == pi1) return;
+        
+        let x2 = ps[pi2], y2 = ps[pi2+1], color2 = ps[pi2+PID], r2 = ps[pi2+PRADIUS2], gen2 = ps[pi2+PLVL];
+        let dx = x2-x1, dy = y2-y1;
+        let dis = dx*dx + dy*dy;
+        
+        if (dis >= radius*radius) return;
+        
+        dis = Math.sqrt(dis);
+        
+        let w = 1.0 - dis / radius;
+        
+        if (isNaN(w)) {
+          console.log(dis, dx, dy, x1, y1, x2, y2);
+          throw new Error("nan!");
+        }
+        w = w*w*(3.0 - 2.0*w);
+        
+        let i1 = 4*pi1/PTOT;
+        let i2 = 4*pi2/PTOT;
+        
+        for (let j=0; j<3; j++) {
+          if (isNaN(errors[i1+j])) {
+            console.log(errors, i1, j);
+            throw new Error("NaN!");
+          }
+          
+          if (isNaN(w) || isNaN(errors[i1+j])) {
+            console.log(errors, i1, j, w);
+            throw new Error("NaN again!");
+          }
+          
+          pcolors[i2+j] += -errors[i1+j]*w;
+        }
+      }
+      
+      for (pi1=0; pi1<ps.length; pi1 += PTOT) {
+        x1 = ps[pi1], y1 = ps[pi1+1], color1=ps[pi1+PID], r1 = ps[pi1+PRADIUS2], gen1=ps[pi1+PLVL];
+        
+        let i = (pi1/PTOT)*4;
+        let color = colors.colors[color1];
+        
+        for (let j=0; j<3; j++) {
+          if (isNaN(color[j])) {
+            console.log(color, color1);
+            throw new Error("nan!");
+          }
+          
+          if (isNaN(pcolors[i+j])) {
+            console.log(pcolors, i, j);
+            throw new Error("nan!!");
+          }
+          
+          errors[i+j] = (pcolors[i+j] - color[j]);
+        }
+        
+        tree.forEachPoint(x1, y1, radius, callback);
+      }
+      
+      let clr = [0, 0, 0, 1];
+      
+      for (pi1=0; pi1<ps.length; pi1 += PTOT) {
+        let i = (pi1/PTOT)*4;
+        
+        for (let j=0; j<4; j++) {
+          clr[j] = pcolors[i+j];
+        }
+        
+        let ci = colors.closest_color_fast(clr);
+        ps[pi1+PID] = ci;
+      }
+      
+      console.log("done");
+    },
+    
+    function step_cmyk_color_mask(custom_steps, skip_points_display) {
+      if (this.mask === undefined || this.mask.data == undefined) {
+        console.log("WARNING: mask failed to load");
+        return;
+      }
+      
+      var masksize = this.mask.width;
+      var mask = this.mask.data.data;
+      var points = this.points;
+      var steps = custom_steps ? custom_steps : window.STEPS;
+      var cw = this.mask.width;
+      var ch = this.mask.height;
+      let ix, iy;
+      var size = this.gridsize;
+      var iw = DIMEN, ih=DIMEN;
+
+      var raster_image = this.raster_image;
+      var rdata = raster_image !== undefined ? raster_image.data : undefined;
+      
+      var mask = this.mask.data.data;
+      var mscale = SMALL_MASK ? 1 : (XLARGE_MASK ? 8 : 4);
+
+          var rasterfac = raster_image != undefined ? ~~Math.ceil(raster_image.width / this.dimen) : 1;
+          
+      function dot2(rx2, ry2, c, m, y, k) {
+        var rx = ~~(rx2/2);
+        var ry = ~~(ry2/2);
+        
+        var ax = ~~(rx2 - rx);
+        var ay = ~~(ry2 - ry);
+        
+        var size = 1;
+        var offs = cconst.get_searchoff(size);
+        
+        var ridx = (ry*raster_image.width+rx)*4;
+        var fac = 1.0;
+        
+        ridx += ax % 3;
+        
+        rdata[ridx] = 0;
+        //rdata[ridx+1] = Math.max(rdata[ridx+1]-m*fac, 0);
+        //rdata[ridx+2] = Math.max(rdata[ridx+2]-y*fac, 0);
+        //rdata[ridx+3] = 255;
+      }
+      
+      function dot(rx, ry, spotk, c, m, y, k) {
+        var f1 = (1.0-spotk);
+        if (c == m && c == y)
+          f1 = spotk;
+        
+        f1 *= 0.5;
+        
+        dot_intern(rx, ry, spotk, c, m, y, k, 0.4);
+        
+        //crude simulation of ink bleeding
+        f1 = 0.1;
+        dot_intern(rx-1, ry, spotk, c, m, y, k, f1);
+        dot_intern(rx, ry+1, spotk, c, m, y, k, f1);
+        dot_intern(rx+1, ry, spotk, c, m, y, k, f1);
+        dot_intern(rx, ry-1, spotk, c, m, y, k, f1);
+      }
+      
+      function dot_intern(rx, ry, spotk, c, m, y, k, alpha) {
+        alpha = alpha == undefined ? 1 : alpha;
+        
+        var size = ~~(rasterfac*0.25);
+        size = 0;
+        
+        var offs = cconst.get_spotfunc(size, spotk);
+
+        if (size == 0) {
+          //rx = Math.min(Math.max(rx, 0), raster_image.width);
+          //ry = Math.min(Math.max(ry, 0), raster_image.height);
+          
+          var ridx = (ry*raster_image.width+rx)*4;
+          
+          rdata[ridx] = Math.max(rdata[ridx]-c*alpha, 0)//*(1.0-k);
+          rdata[ridx+1] = Math.max(rdata[ridx+1]-m*alpha, 0);
+          rdata[ridx+2] = Math.max(rdata[ridx+2]-y*alpha, 0);
+          rdata[ridx+3] = 255;
+          
+          return;
+        }
+        
+        for (var i=0; i<offs.length; i++) {
+          var rx2 = rx + offs[i][0];
+          var ry2 = ry + offs[i][1];
+          
+          if (rx2 < 0 || ry2 < 0 || rx2 >= raster_image.width || ry2 >= raster_image.height) {
+            continue;
+          }
+          
+          var ridx = (ry2*raster_image.width+rx2)*4;
+          
+          rdata[ridx] = Math.max(rdata[ridx]-c*alpha, 0)//*(1.0-k);
+          rdata[ridx+1] = Math.max(rdata[ridx+1]-m*alpha, 0);
+          rdata[ridx+2] = Math.max(rdata[ridx+2]-y*alpha, 0);
+          rdata[ridx+3] = 255;
+        }
+      }
+      
+      for (var si=0; si<steps; si++, this.cur++) {
+          if (this.cur >= size*size) {
+            console.log("Done.");
+            break;
+          }
+          
+          var x = this.cur % size;
+          var y = ~~(this.cur / size);
+          
+          var flip = y%2==0;
+          //flip=0;
+          
+          if (flip) {
+            x = size - x - 1;
+          }
+          
+          var gx = x, gy = y;
+          
+          ix = ~~(((x*mscale) % cw)+0.5);
+          iy = ~~(((y*mscale) % ch)+0.5);
+          
+          var igx = x;
+          var igy = y;
+          
+          x /= size;
+          y /= size;
+          
+          x = (x-0.5)*2.0, y = (y-0.5)*2.0;
+          
+          var clr = this.sampler(x, y, size, 1.0);
+          
+          if (clr[0] < 0) {
+            continue; //sampler requested we discard this sample
+          }
+          
+          var f = this.calcIntensity(clr[0], clr[1], clr[2]);
+          //var f = (clr[0]*0.4026 + clr[1]*0.4052 + clr[2]*0.2022)*0.8;
+          //var f = clr[0]*clr[0] + clr[1]*clr[1] + clr[2]*clr[2];
+          //f = f != 0.0 ? Math.sqrt(f) / sqrt3 : 0.0;
+          
+          var sat = Math.abs(1.0-clr[0]) +  Math.abs(1.0-clr[1]) +  Math.abs(1.0-clr[2]);
+          sat /= 3.0;
+          
+          if (ADAPTIVE_COLOR_DENSITY) {
+            //scale spacing of points by saturation (how much color there is)
+            f *= Math.pow(1.0-sat, 2);
+          }
+          let finten = f;
+          
+          f = MAKE_NOISE ? 0.65 : f;
+          
+          var fr = clr[0], fg = clr[1], fb = clr[2];
+          
+          var cmyk = colors.rgb_to_cmyk(clr[0], clr[1], clr[2]);
+          
+          fr = cmyk[0];
+          fg = cmyk[1];
+          fb = cmyk[2];
+          
+          //fr *= 1.5;
+          //fg *= 1.5;
+          //fb *= 1.5;
+
+          var rx = this.cur % size;
+          var ry = ~~(this.cur / size);
+          if (flip) {
+            rx = size - rx - 1;
+          }
+          
+          let rx2 = ~~(raster_image.width*rx/size);
+          let ry2 = ~~(raster_image.height*ry/size);
+          let idx = (ry2*raster_image.width + rx2)*4;
+
+          //rdata[idx] = 255;
+          //rdata[idx+1] = 0;
+          //rdata[idx+3] = 255;
+          
+          for (let color=0; color<4; color++) {
+            let masksize2 = ~~(masksize/2);
+
+            //break;
+            let ox = color%2, oy = ~~(color/2);
+            
+            ox *= masksize2;
+            oy *= masksize2;
+            
+            var mx = rx % masksize2;
+            var my = ry % masksize2;
+            
+            mx = ~~(mx + ox);
+            my = ~~(my + oy);
+            
+            let idx2 = (my*masksize + mx)*4;
+            
+            let f = cmyk[color];
+            //f = f*f*(3.0 - 2.0*f);
+            //f = color == 3 ? 1.0 - f : f;
+            
+            if (f*255 < mask[idx2]) {
+              continue;
+            }
+            
+            //if (color != 3)
+            //  continue;
+            
+            //rdata[idx] = rdata[idx+1] = rdata[idx+2] = 0;
+            //dot(rx2, ry2, 1.0, cmyk[0]*255, cmyk[1]*255, cmyk[2]*255, cmyk[3]*255);
+            
+            //continue;
+            switch (color) {
+              case 0:
+                dot(rx2, ry2, 1.0, 255, 0, 0, 0);
+                
+                //dot(x, y, f, 255, 0, 0, 255);
+                //rdata[idx] = Math.max(rdata[idx]-255, 0);
+                //rdata[idx+1] = Math.max(rdata[idx+1]-100, 0);
+                break;
+              case 1:
+                dot(rx2, ry2, 1.0, 0, 255, 0, 0);
+                //rdata[idx+1] = Math.max(rdata[idx+1]-255, 0);
+                //rdata[idx+2] = Math.max(rdata[idx+2]-100, 0);
+                break;
+              case 2:
+                dot(rx2, ry2, 1.0, 0, 0, 255, 0);
+                //rdata[idx+2] = Math.max(rdata[idx+2]-255, 0);
+                break;
+              case 3:
+                dot(rx2, ry2, 1.0, 255, 255, 255, 255);
+                //rdata[idx+0] = Math.max(rdata[idx+0]-255, 0);
+                //rdata[idx+1] = Math.max(rdata[idx+1]-255, 0);
+                //rdata[idx+2] = Math.max(rdata[idx+2]-255, 0);
+                break;
+            }
+            
+            rdata[idx+3] = 255;
+          }
+          
+          //dot(x, y, f, 0, 0, 0, 255);
+      }
+      
+      if (!skip_points_display) {
+        console.log("points", points.length/PTOT);
+        console.log("\n");
+      }
+      
+      if (TRI_MODE && !skip_points_display) {
+        console.log("regenerating triangulation...");
+        this.del();
+      } else if (SCALE_POINTS && !skip_points_display) {
+        this.calc_radii();
+      }
+    },
+    
     //REFACTOR MUST HAPPEN!
     function step(custom_steps, skip_points_display) {
       if (RASTER_IMAGE && RASTER_MODE == RASTER_MODES.PATTERN) {
@@ -517,7 +1162,15 @@ define([
         return;
       }
       
-      if (this.smask !== undefined) {
+      if (RASTER_IMAGE && RASTER_MODE == RASTER_MODES.CMYK && USE_CMYK_MASK) {
+        this.step_cmyk_color_mask();
+        return;
+      }
+      
+      if (RASTER_IMAGE && RASTER_MODE == RASTER_MODES.DIFFUSION) {
+        this.cur = this.step_diffusion(custom_steps, this.cur);
+        return;
+      } else if (this.smask !== undefined) {
         this.step_smask(custom_steps);
         return;
       }
@@ -525,7 +1178,7 @@ define([
       this.r = 1.0;
       
       var raster_image = this.raster_image;
-      var rdata = raster_image != undefined ? raster_image.data : undefined;
+      var rdata = raster_image !== undefined ? raster_image.data : undefined;
       
       if (this.sampler == undefined) {
         console.log("image hasn't loaded yet");
@@ -626,9 +1279,10 @@ define([
             continue; //sampler requested we discard this sample
           }
           
+          var f = this.calcIntensity(clr[0], clr[1], clr[2]);
           //var f = (clr[0]*0.4026 + clr[1]*0.4052 + clr[2]*0.2022)*0.8;
-          var f = clr[0]*clr[0] + clr[1]*clr[1] + clr[2]*clr[2];
-          f = f != 0.0 ? Math.sqrt(f) / sqrt3 : 0.0;
+          //var f = clr[0]*clr[0] + clr[1]*clr[1] + clr[2]*clr[2];
+          //f = f != 0.0 ? Math.sqrt(f) / sqrt3 : 0.0;
           
           var sat = Math.abs(1.0-clr[0]) +  Math.abs(1.0-clr[1]) +  Math.abs(1.0-clr[2]);
           sat /= 3.0;
@@ -904,7 +1558,7 @@ define([
             
             f1 *= 0.5;
             
-            dot_intern(rx, ry, spotk, c, m, y, k, 0.85);
+            dot_intern(rx, ry, spotk, c, m, y, k, 0.4);
             if (RASTER_MODE != RASTER_MODES.CMYK) {
               return;
             }
@@ -1098,8 +1752,8 @@ define([
           points[pi+1] = y;
           points[pi+2] = start_r//*(1.0 + 0.25*(sat));
           points[pi+PINTEN] = finten;
-          points[pi+4] = ci;
-          points[pi+5] = lvl;
+          points[pi+PID] = ci;
+          points[pi+PLVL] = lvl;
           points[pi+PRADIUS2] = -1;//points[pi+PRADIUS];
           
           points[pi+POX] = points[pi+POLDX] = points[pi];
@@ -1191,10 +1845,17 @@ define([
         this.image = _appstate.image;
         
         if (this.image.data.orig === undefined) {
-          this.image.data.orig = this.image.data.data.slice(0, this.image.data.data.length);
+          this.image.data.orig = new Uint8Array(this.image.data.data.length);
+          this.image.data.orig.set(this.image.data.data);
         }
         
+        this.image.data.data.set(this.image.data.orig);
         this.image.fdata = new Float32Array(this.image.data.orig);
+        
+        if (HIST_EQUALIZE) {
+          this.image.fdata = sampler.histEqualize(this.image).fdata;
+          sampler.fdataToData8(this.image.fdata, this.image.data.data);
+        }
         
         if (DEBAND_IMAGE) {
           this.image.fdata = sampler.debandImage(this.image).fdata;
@@ -1343,13 +2004,13 @@ define([
           return; //dropped point
         }
         
-        let f1 = (clr[0]+clr[1]+clr[2])/3.0;
+        let f1 = this.calcIntensity(clr[0], clr[1], clr[2]);
 
         clr = this.sampler(x+df, y, this.gridsize, 1.0, undefined, true);
-        let f2 = (clr[0]+clr[1]+clr[2])/3.0;
+        let f2 = this.calcIntensity(clr[0], clr[1], clr[2]);
 
         clr = this.sampler(x, y+df, this.gridsize, 1.0, undefined, true);
-        let f3 = (clr[0]+clr[1]+clr[2])/3.0;
+        let f3 = this.calcIntensity(clr[0], clr[1], clr[2]);
 
         dx = (f2 - f1) / df;
         dy = (f3 - f1) / df;
@@ -1537,6 +2198,7 @@ define([
           vcells[i+j] = sortlst[j];
         }
       }
+      
       console.log("total tris:", tris.length/3);
     },
     
@@ -1679,8 +2341,9 @@ define([
                 continue;
               }
 
-              f = clr[0]*clr[0] + clr[1]*clr[1] + clr[2]*clr[2];
-              f = f != 0.0 ? Math.sqrt(f) / sqrt3 : 0.0;
+              f = this.calcIntensity(clr[0], clr[1], clr[2]);
+              //f = clr[0]*clr[0] + clr[1]*clr[1] + clr[2]*clr[2];
+              //f = f != 0.0 ? Math.sqrt(f) / sqrt3 : 0.0;
 
               let sat = Math.abs(1.0-clr[0]) +  Math.abs(1.0-clr[1]) +  Math.abs(1.0-clr[2]);
               sat /= 3.0;
@@ -1872,29 +2535,23 @@ define([
           //return dis*0.0025*(1.0-i1*i1); //Math.max(dis * (0.25 + dis2), 0.0); //ps[pi1+PRADIUS2];// + 0.35*(2.0-tdis)*ps[pi1+PRADIUS2];
           //*/
 
-          dis = dis > 0 ? Math.sqrt(dis) : 0;
           
           dx = (x2 - x1), dy = (y2 - y1);
-          if (dx*dx1 + dy*dy1 < 0) {
-            dx1 = -dx1;
-            dy1 = -dy1;
-          }
-          
-          let l = dx1*dx1 + dy1*dy1;
-          if (l > 0) {
-            l = Math.sqrt(l);
-            dx1 /= l;
-            dy1 /= l;
-          }
           
           dx1 = Math.sin(ps[pi1+PTH] + STICK_ROT + Math.PI*0.5);
           dy1 = Math.cos(ps[pi1+PTH] + STICK_ROT + Math.PI*0.5);
           
-          
           dis = Math.abs(dx*dy1 - dy*dx1);
           
+          let dis2 = Math.sqrt(dx*dx + dy*dy);
+          
+          //let t = dx*dx1 + dy*dy1;
+          //if (t > 0 && t < dis2)
+          //  return Math.min(dis, dis2)*anis_w1;
+          //return dis2*anis_w1;
+          
           //dis = Math.sqrt(dis);
-          return dis*anis_w1 + Math.sqrt(dx*dx + dy*dy)*anis_w2;          
+          return dis*anis_w1 + dis2*anis_w2;
         } else {
           let dx = x1-x2, dy = y1-y2;
           
@@ -2044,8 +2701,9 @@ define([
           continue;
         }
         
-        let f = clr[0]*clr[0] + clr[1]*clr[1] + clr[2]*clr[2];
-        f = f != 0.0 ? Math.sqrt(f) / Math.sqrt(3) : 0.0;
+        let f = this.calcIntensity(clr[0], clr[1], clr[2]);
+        //let f = clr[0]*clr[0] + clr[1]*clr[1] + clr[2]*clr[2];
+        //f = f != 0.0 ? Math.sqrt(f) / Math.sqrt(3) : 0.0;
         
         let sat = Math.abs(1.0-clr[0]) +  Math.abs(1.0-clr[1]) +  Math.abs(1.0-clr[2]);
         sat /= 3.0;
@@ -2335,8 +2993,10 @@ define([
           continue;
         }
         
-        let f = clr[0]*clr[0] + clr[1]*clr[1] + clr[2]*clr[2];
-        f = f != 0.0 ? Math.sqrt(f) / Math.sqrt(3) : 0.0;
+        
+        let f = this.calcIntensity(clr[0], clr[1], clr[2]);
+        //let f = clr[0]*clr[0] + clr[1]*clr[1] + clr[2]*clr[2];
+        //f = f != 0.0 ? Math.sqrt(f) / Math.sqrt(3) : 0.0;
         
         let sat = Math.abs(1.0-clr[0]) +  Math.abs(1.0-clr[1]) +  Math.abs(1.0-clr[2]);
         sat /= 3.0;

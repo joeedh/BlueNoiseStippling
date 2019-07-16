@@ -1,8 +1,11 @@
 var __appstate = undefined;
 
 define([
-  "util", "const", "bluenoise", "draw", "colors", "ui", "spectrum", "indexdb_store", "smoothmask_file"
-], function(util, cconst, bluenoise, draw, colors, ui, spectrum, indexdb_store, smoothmask_file) {
+  "util", "const", "bluenoise", "draw", "colors", "ui", "spectrum", "indexdb_store", "smoothmask_file",
+  "render"
+], function(util, cconst, bluenoise, draw, colors, ui, spectrum, indexdb_store, smoothmask_file,
+            render) 
+{
   "use strict";
   
   var exports = __appstate = {};
@@ -116,6 +119,8 @@ define([
         img.data[3] = 255;
         
         iview.fill(iview[0], 0, iview.length);
+      } else if (HIGH_QUALITY_RASTER) {
+        this.hqrender = new render.CircleRender(this.canvas.width, this.canvas.height);
       }
       
       this.bluenoise.reset(RASTER_IMAGE ? this.outimage : undefined);
@@ -123,7 +128,18 @@ define([
     }
     
     draw() {
-      this.drawer.draw(this.g);
+      if (HIGH_QUALITY_RASTER && this.hqrender === undefined) {
+        this.hqrender = new render.CircleRender(this.canvas.width, this.canvas.height);
+      } else if (HIGH_QUALITY_RASTER) {
+        this.hqrender.reset();
+      }
+      
+      this.drawer.draw(HIGH_QUALITY_RASTER ? this.hqrender : this.g);
+      
+      if (HIGH_QUALITY_RASTER) {
+        this.hqrender.render();
+        this.g.putImageData(this.hqrender.image, 0, 0);
+      }
       
       if (SHOW_IMAGE && this.image !== undefined && this.image.data !== undefined) {
         this.g.putImageData(this.image.data, 25, 25);
@@ -137,11 +153,22 @@ define([
     on_keydown(e) {
       console.log(e.keyCode);
       switch (e.keyCode) {
+        case 68: //dkey
+          this.bluenoise.step();
+          
+          redraw_all();
+          
+          console.log("DONE");
+          break;
         case 75: //kkey
           console.log("relax");
           this.bluenoise.relax();
           //console.log("spectrum");
           //this.calc_spectrum();
+          redraw_all();
+          break;
+        case 76: //lkey
+          this.bluenoise.colordiffuse();
           redraw_all();
           break;
         case 82: //rkey
@@ -150,14 +177,6 @@ define([
           colors.gen_colors();
           
           redraw_all();
-          break;
-          
-        case 68: //dkey
-          this.bluenoise.step();
-          
-          redraw_all();
-          
-          console.log("DONE");
           break;
       }
     }
@@ -396,7 +415,7 @@ define([
         redraw_all();
       });
       
-      let rpanel = cpanel.panel("Relaxation");
+      let rpanel = gui.panel("Relaxation");
       rpanel.button("relax", "Relax", () => {
         _appstate.bluenoise.relax();
         redraw_all();
@@ -436,13 +455,15 @@ define([
       spanel.slider("STEPS", "Points Per Step", 32, 1, 50000, 1, true);
       spanel.slider("DRAW_RMUL", "Point Size", 1.0, 0.1, 8.0, 0.01, false, true);
       spanel.slider("RAND_FAC", "Added Random", 0.0, 0.0, 3.0, 0.005, false, true);
-
+      spanel.check("HIGH_QUALITY_RASTER", "HQ Renderer");
+      
       spanel.check("SHOW_KDTREE", "Show kdtree");
       spanel.check("SCALE_POINTS", "Radius Scale");
       spanel.check('TRI_MODE', "Triangle Mode");
       
       let apanel = panel.panel("Stick Mode")
       apanel.check("DRAW_STICKS", "Draw Sticks");
+      apanel.check("STICK_ARROWS", "Use Arrows");
       apanel.slider("STICK_ROT", "StickRot", 0.0, -Math.PI, Math.PI, 0.0001, false, true);
       apanel.slider("STICK_WIDTH", "StickWidth", 0.0, 0.0001, 12.0, 0.0001, false, true);
       apanel.slider("STICK_LENGTH", "StickLength", 0.0, 0.0001, 12.0, 0.0001, false, true);
@@ -456,15 +477,17 @@ define([
       dpanel.check("DITHER_BLUE", "Blue Noise");
       dpanel.slider("DITHER_BLUE_STEPS", "Dither Uniformity", 6.0, 0.0, 256.0, 0.005, true, false);
       
-      panel.check("DEBAND_IMAGE", "Deband");
-      panel.slider("DEBAND_RADIUS", "Deband Radius", 15, 1, 512, 1, true, false);
-      panel.slider("DEBAND_BLEND", "Deband Blend", 0.5, 0, 1, 0.0001, false, false);
+      let fpanel = panel.panel("Image Filtering");
+      fpanel.check("HIST_EQUALIZE", "EqualizeHistogram");
+      fpanel.check("DEBAND_IMAGE", "Blur Derivatives");
+      fpanel.slider("DEBAND_RADIUS", "Blur Radius", 15, 1, 512, 1, true, false);
+      fpanel.slider("DEBAND_BLEND", "BlendWithOriginal", 0.0, 0, 1, 0.0001, false, false);
       
-      panel.check("SHARPEN", "Sharpen");
-      panel.slider("SHARPNESS", "Sharpness", 0.5, 0.0, 3.5, 0.001, false);
-      panel.check('SHARPEN_LUMINENCE', 'Luminence Only');
-      panel.check('USE_LAB', 'Use Lab Space');
-      panel.open();
+      fpanel.check("SHARPEN", "Sharpen");
+      fpanel.slider("SHARPNESS", "Sharpness", 0.5, 0.0, 3.5, 0.001, false);
+      fpanel.check('SHARPEN_LUMINENCE', 'Luminence Only');
+      fpanel.check('USE_LAB', 'Use Lab Space');
+      fpanel.close();
       
       var panel2 = gui.panel("Save Tool")
       panel2.button("save_img", "Save Image", () => {
@@ -489,6 +512,11 @@ define([
       
       var panel3 = panel2.panel("Tone Curve");
       window.TONE_CURVE = panel3.curve("TONE_CURVE", "Tone Curve", cconst.DefaultCurves.TONE_CURVE).curve;
+      panel3.close();
+      
+      var panel3 = panel2.panel("Density Curve");
+      window.DENSITY_CURVE = panel3.curve("DENSITY_CURVE", "Density Curve", cconst.DefaultCurves.DENSITY_CURVE).curve;
+      panel3.close();
       
       panel2.check("SHOW_IMAGE", "Show Image");
       panel2.check("SHOW_DVIMAGE", "Show DvImage");
@@ -511,6 +539,7 @@ define([
       console.log("SDFSDFSDF", rastermode);
       
       panel3.listenum("RASTER_MODE", "Mode", RASTER_MODES, rastermode);
+      panel3.check("USE_CMYK_MASK", "CMYK Masksheet")
       
       panel2.check("MAKE_NOISE", "Make Noise (to test relax)");
       panel2.check("SMALL_MASK", "Small Mask Mode");

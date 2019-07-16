@@ -1,8 +1,8 @@
 var _draw = undefined;
 
 define([
-  "util", 'colors'
-], function(util, colors) {
+  "util", "colors", "render"
+], function(util, colors, render) {
   'use strict';
   
   var exports = _draw = {};
@@ -107,7 +107,7 @@ define([
             rad = this.scale_point_r(ps[i+PRADIUS2]);
           }
           
-          var fac = (1.0/r)*rad;
+          var fac = 0.6;//rad/r;
           
           fac *= DRAW_RMUL;
           
@@ -325,6 +325,8 @@ define([
       g.save();
       g.lineWidth = g.lineWidth / this.bluenoise.gridsize * STICK_WIDTH * 0.5;
       
+      let swid = 0.25 * STICK_WIDTH / this.bluenoise.gridsize;
+      
       for (var si=0; si<colors.colors.length; si++) {
         var c = colors.colors[si];
         
@@ -342,6 +344,7 @@ define([
         }
         
         g.strokeStyle = "rgba(" + r + "," + g1 + "," + b + ","+alpha+")";
+        g.fillStyle = "rgba(" + r + "," + g1 + "," + b + ","+alpha+")";
         
         g.beginPath();
         
@@ -371,36 +374,70 @@ define([
           x += (util.random()-0.5)*RAND_FAC*(2.0 - inten)*szfac;
           y += (util.random()-0.5)*RAND_FAC*(2.0 - inten)*szfac;
 
-          var w = radius/2.0;
+          var w = 1.0;
           if (SCALE_POINTS) {
-            w = this.scale_point_r(points[i+PRADIUS2])*0.5;
+            //w = this.scale_point_r(points[i+PRADIUS2])/points[i+PRADIUS2];
+            w = 1.0 - points[i+PINTEN];
+            w = w**0.5;
           }
           
           if (DRAW_TRANSPARENT) {
             g.beginPath()
           }
           
-          
           let thfac = 1.0 + inten;//(1.0 - inten)**0.15;
           
           let dx = Math.sin(th + STICK_ROT)*szfac*thfac*STICK_LENGTH;
           let dy = Math.cos(th + STICK_ROT)*szfac*thfac*STICK_LENGTH;
           
-          g.moveTo(x-dx, y-dy);
-          g.lineTo(x+dx, y+dy);
+          let nx = -dy, ny = dx;
+          let len = Math.sqrt(nx*nx + ny*ny);
           
-          //g.arc(x, y, w*DRAW_RMUL, 0, Math.PI*2);
+          if (len == 0) {
+            continue;
+          }
           
-          //var w2 = w*DRAW_RMUL;
-          //g.rect(x-w2*0.5, y-w2*0.5, w2, w2);
+          nx *= w*swid/len;
+          ny *= w*swid/len;
+          
+          let x1 = x-dx, y1 = y-dy;
+          let x2 = x+dx, y2 = y+dy;
+
+          dx *= w*swid/len;
+          dy *= w*swid/len;
+          
+          //*
+          g.moveTo(x1-nx, y1-ny);
+          g.lineTo(x1+nx, y1+ny);
+          
+          if (STICK_ARROWS) {
+            let tscale = 1.0 / (w*0.75 + 0.25);
+            let t = 3*tscale, t2 = 7*tscale;
+            
+            g.lineTo(x2+nx, y2+ny);
+            g.lineTo(x2+nx*t, y2+ny*t);
+            g.lineTo(x2 + dx*t2, y2 + dy*t2);
+            g.lineTo(x2-nx*t, y2-ny*t);
+            g.lineTo(x2-nx, y2-ny);
+          } else {
+            g.lineTo(x2+nx, y2+ny);
+            g.lineTo(x2-nx, y2-ny);
+          }
+          g.closePath();
+          //*/
+          
+          /*
+          g.moveTo(x1, y1);
+          g.lineTo(x2, y2);
+          //*/
           
           if (DRAW_TRANSPARENT) {
-            g.stroke();
+            g.fill();
           }
         }      
         
         if (!DRAW_TRANSPARENT) {
-          g.stroke();
+          g.fill();
         }
       }
       

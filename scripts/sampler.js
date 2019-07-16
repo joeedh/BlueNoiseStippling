@@ -6,6 +6,175 @@ define([
     
   let exports = _sampler = {};
   
+  let Histogram = exports.Histogram = class Histogram extends Array {
+    constructor(size=256) {
+      super();
+      this.length = size;
+      
+      this.fill(0, 0, this.length);
+    }
+    
+    reset() {
+      this.fill(0, 0, this.length);
+      return this;
+    }
+    
+    add(f, weight=1) {
+      f = Math.min(Math.max(f, 0.0), 1.0)*0.99999999;
+      let fi = ~~(f*this.length);
+      
+      this[fi] += weight;
+    }
+    
+    finish() {
+      //non-cumulative distribution function
+      this.df = this.slice(0, this.length);
+      
+      for (let i=1; i<this.length; i++) {
+        this[i] += this[i-1];
+      }
+    }
+    
+    calcIntensity(r, g, b) {
+      return colors.rgb_to_intensity(r, g, b);
+      /*
+      let avg = (r+g+b)/3.0;
+      let sat = Math.sqrt((r-avg)*(r-avg) + (g-avg)*(g-avg) + (b-avg)*(b-avg))/1.5;
+      
+      let w1 = 0.9, w2 = 0.5, w3 = 0.4;
+      
+      let colorf = (r*w1 + g*w2 + b*w3) / (w1 + w2 + w3);
+      
+      sat = Math.min(Math.max(sat, 0.0), 0.99999);
+      sat = 1.0 - Math.pow(1.0 - sat, 4.0);
+      
+      //return colorf;
+      return avg + (colorf - avg) * sat;
+      
+      //return Math.sqrt(r*r +  g*g + b*b) / Math.sqrt(3.0);//*/
+    }
+    
+    doImage(image) {
+      let fdata = image.fdata !== undefined ? image.fdata : image.data;
+      
+      for (let i=0; i<fdata.length; i += 4) {
+        let r = fdata[i], g = fdata[i+1], b = fdata[i+2], a = fdata[i+3];
+        
+        if (a == 0.0) {
+          continue;
+        }
+        
+        r /= 255;
+        g /= 255;
+        b /= 255;
+        
+        let f = this.calcIntensity(r, g, b);
+        
+        this.add(f, a/255);
+      }
+      
+      // try to corret for large areas of one shade
+      //*
+      let tot = 0.0;
+      let max = 0.0;
+      for (let i=0; i<this.length; i++) {
+        tot += this[i];
+        max = Math.max(max, this[i]);
+      }
+      
+      if (tot > 0) {
+        for (let i=0; i<this.length; i++) {
+          let f = Math.abs(this[i] - tot);
+          
+          if (f > 0) {
+            this[i] *= Math.pow(1.0 - this[i]/tot, 5.0);
+          }
+        }        
+      }
+      //*/
+      
+      this.finish();
+    }
+    
+    draw(canvas, g) {
+      g.save();
+      
+      let x = 20, y = 140;
+      let w = 500, h = 200;
+      
+      g.strokeStyle = "grey";
+      
+      g.beginPath();
+      g.rect(x, y, w, h);
+      g.stroke();
+      
+      let max = this[this.length-1];
+      if (max == 0.0) {
+        return;
+      }
+      
+      g.lineWidth *= 2;
+      g.strokeStyle = "orange";
+
+      g.beginPath();
+      
+      for (let i=0; i<this.length; i++) {
+        let x2 = x + (i / this.length) * w;
+        let y2 = y + (1.0 - this[i] / max) * h;
+        
+        if (i == 0)
+          g.moveTo(x2, y2);
+        else
+          g.lineTo(x2, y2);
+      }
+      g.stroke();
+      g.restore();
+    }
+  }
+  
+  exports.histEqualize = function histEqualize(image) {
+    if (image.fdata === undefined) 
+      image.fdata = new Float32Array(image.data);
+    
+    let hist = new Histogram();
+
+    hist.reset();
+    hist.doImage(image);
+    
+    let max = hist[hist.length-1];
+    if (max == 0.0) {
+      return;
+    }
+    
+    let fdata = image.fdata;
+    let fdata2 = new Float32Array(fdata.length);
+    fdata2.set(fdata);
+    
+    for (let i=0; i<fdata.length; i += 4) {
+      let r = fdata[i]/255, g = fdata[i+1]/255, b = fdata[i+2]/255;
+      let a = fdata[i+3]/255;
+      
+      if (a == 0.0)
+        continue;
+      
+      let f = colors.rgb_to_intensity(r, g, b);
+      f = Math.min(Math.max(f, 0.0), 1.0)*0.9999999;
+      
+      let fi = ~~(f*hist.length);
+      let off = hist[fi]/max - fi/hist.length;
+      
+      fdata2[i] += off*255;
+      fdata2[i+1] += off*255;
+      fdata2[i+2] += off*255;
+    }
+    
+    return {
+      width  : image.width,
+      heigth : image.height,
+      fdata  : fdata2
+    };
+  }
+  
   exports.fdataToData8 = function(fdata, idata) {
     for (let i=0; i<fdata.length; i += 4) {
       for (let k=0; k<4; k++) {
@@ -42,9 +211,24 @@ define([
 
     //return image;
 
-    let image2 = exports.downsampleImage(image);
+    let downSteps = Math.floor(image.width/2048);
+    let image2 = image;
+    
+    console.log("downSteps", downSteps);
+    
+    console.log("Downsampling");
+    for (let i=0; i<downSteps; i++) {
+      image2 = exports.downsampleImage(image2);
+    }
+    
+    console.log("Blurring");
     image2 = exports.blurImage(image2);
-    image2 = exports.upsampleImage(image2);
+    
+    console.log("Upscaling");
+    //for (let i=0; i<downSteps; i++) {
+    if (downSteps > 0) 
+      image2 = exports.upsampleImage(image2, 1<<downSteps);
+    //}
     
     console.log("Done");
     
@@ -87,30 +271,34 @@ define([
     };
   }
   
-  exports.upsampleImage = function upsampleImage(image) {
-    let width = image.width<<1, height = image.height<<1;
+  exports.upsampleImage = function upsampleImage(image, factor=2) {
+    let width = ~~(image.width*factor), height = ~~(image.height*factor);
     
-    let fdata = new Float32Array(width*height*4);
+    let fdata = new Float32Array((width*height)<<2);
     let fdata2 = image.fdata;
     
-    for (let i=0; i<fdata.length; i += 4) {
-      let i2 = i/4, ix = i2 % image.width, iy = ~~(i2 / image.width);
+    let width2=image.width, height2=image.height;
+    
+    for (let i=0; i<fdata2.length; i += 4) {
+      let i2 = i/4, ix = i2 % width2, iy = ~~(i2 / width2);
       
-      let ix2 = Math.min(ix+1, image.width-1), iy2 = Math.min(iy, image.height-1);
-      let i3 = (iy2*image.width + ix2)*4;
+      let ix2 = Math.min(ix+1, width2-1), iy2 = Math.min(iy, height2-1);
+      let i3 = (iy2*width2 + ix2)<<2;
       
-      ix2 = Math.min(ix, image.width-1), iy2 = Math.min(iy+1, image.height-1);
-      let i4 = (iy2*image.width + ix2)*4;
+      ix2 = Math.min(ix, width2-1), iy2 = Math.min(iy+1, height2-1);
+      let i4 = (iy2*width2 + ix2)<<2;
 
-      ix2 = Math.min(ix+1, image.width-1), iy2 = Math.min(iy+1, image.height-1);
-      let i5 = (iy2*image.width + ix2)*4;
+      ix2 = Math.min(ix+1, width2-1), iy2 = Math.min(iy+1, height2-1);
+      let i5 = (iy2*width2 + ix2)<<2;
       
-      for (let j=0; j<4; j++) {
-        let jx = j % 2, jy = ~~(j / 2);
-        let ix2 = 2*ix + jx, iy2 = 2*iy + jy;
-        let idx = (iy2*width + ix2)*4;
+      let jlen = ~~(factor*factor);
+      
+      for (let j=0; j<jlen; j++) {
+        let jx = ~~(j % factor), jy = ~~(j / factor);
+        let ix3 = ~~(factor*ix + jx), iy3 = ~~(factor*iy + jy);
+        let idx = ~~((iy3*width + ix3)<<2);
         
-        let u = jx*0.5, v = jy*0.5;
+        let u = jx/factor, v = jy/factor;
         
         for (let k=0; k<4; k++) {
           let a = fdata2[i+k] + (fdata2[i3+k] - fdata2[i+k])*u;

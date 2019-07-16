@@ -26,6 +26,8 @@ window.RASTER_MODES = {
   CMYK      : 2
 }
 
+window.USE_CMYK_MASK = false;
+
 window._search_offs = new Array(64);
 _search_offs[0] = [];
 
@@ -38,18 +40,23 @@ define([
   var exports = _const = {};
 
   exports.defaultConfig = {
-    DIMEN : 165,
+    DIMEN : 235,
+    
+    HIGH_QUALITY_RASTER : false,
+    
     ANISOTROPY : false,
     ANIS_W1 : 0.6,
     ANIS_W2 : 0.6,
+    HIST_EQUALIZE : true,
     DEBAND_IMAGE : true,
+    DEBAND_RADIUS : 15,
+    DEBAND_BLEND : 1,
     DRAW_STICKS : false,
+    STICK_ARROWS : false,
     STICK_ROT : 0.0,
     STICK_WIDTH : 2,
     STICK_LENGTH : 2.0,
     FILTERWID : 3.0, 
-    DEBAND_RADIUS : 15,
-    DEBAND_BLEND : 1,
     ANISOTROPY_FILTERWID : 4.0, 
     RELAX_UPDATE_VECTORS : false,
     
@@ -85,8 +92,10 @@ define([
   //used to allocate voronoi diagram
     MAX_VCELL_SIZE : 32,
     RASTER_MODE : RASTER_MODES.CMYK,
-    
+    USE_CMYK_MASK : false,
+
     TONE_CURVE   : undefined,
+    DENSITY_CURVE   : undefined,
     LOW_RES_CUBE : true,
     GRID_MODE : false,
     DRAW_TRANSPARENT : false,
@@ -114,7 +123,8 @@ define([
   };
   
   exports.DefaultCurves = {
-    TONE_CURVE : undefined
+    TONE_CURVE : undefined,
+    DENSITY_CURVE : undefined
   };
   
   exports.toJSON = function() {
@@ -135,7 +145,7 @@ define([
     return this;
   }
   
-  let defaults = {"DIMEN":550,"ANISOTROPY":true,"ANIS_W1":0.7,"ANIS_W2":0.9,"DEBAND_IMAGE":false,"DRAW_STICKS":false,"STICK_ROT":0.4,"STICK_WIDTH":3.5,"STICK_LENGTH":1.5,"FILTERWID":2,"DEBAND_RADIUS":5,"DEBAND_BLEND":1,"ANISOTROPY_FILTERWID":2,"RELAX_UPDATE_VECTORS":false,"SHOW_IMAGE":false,"SHOW_DVIMAGE":false,"SPECIAL_OFFSETS":true,"XLARGE_MASK":false,"SMALL_MASK":false,"SCALE_POINTS":false,"SHOW_KDTREE":false,"DRAW_RMUL":1.5,"BLACK_BG":false,"SCALE":2,"PANX":0.22,"PANY":0.23,"ACCUM_ALPHA":0.3,"MAKE_NOISE":false,"RELAX_SPEED":5.4030000000000005,"SHARPNESS":0.1,"SHARPEN_LUMINENCE":false,"SHARPEN":false,"USE_LAB":false,"RASTER_IMAGE":false,"USE_MERSENNE":false,"TRI_MODE":false,"MAX_VCELL_SIZE":32,"RASTER_MODE":0,"TONE_CURVE":{"is_new_curve":true,"setting_id":"ui2_bn6_More Options_General_Tone CurveTONE_CURVE","generators":[{"type":1,"points":[{"0":0,"1":0,"eid":24,"flag":0,"deg":3,"tangent":1},{"0":0.29374999999999996,"1":0,"eid":176,"flag":0,"deg":3,"tangent":1},{"0":0.80625,"1":1,"eid":180,"flag":1,"deg":3,"tangent":1},{"0":1,"1":1,"eid":41,"flag":0,"deg":3,"tangent":1}],"deg":6,"eidgen":{"_cur":181}},{"type":2,"equation":"x"},{"type":4,"height":1,"offset":1,"deviation":0.3}],"version":0.5,"active_generator":0},"LOW_RES_CUBE":true,"GRID_MODE":false,"DRAW_TRANSPARENT":false,"STEPS":4498,"RAND_FAC":0,"DITHER_RAND_FAC":0.5,"DITHER_BLUE":true,"DITHER_BLUE_STEPS":14,"BG_PALETTE":false,"SIMPLE_PALETTE":false,"ALLOW_PURPLE":true,"CORRECT_FOR_SPACING":false,"HEXAGON_MODE":false,"ADAPTIVE_COLOR_DENSITY":true,"NO_IMAGE_FILTER":false,"RENDERED_IMAGE_SIZE":2048,"DITHER_COLORS":true,"PAL_COLORS":4,"SHOW_COLORS":true};
+  let defaults = {"DIMEN":550,"ANISOTROPY":true,"ANIS_W1":0.7,"ANIS_W2":0.9,"DEBAND_IMAGE":false,"DRAW_STICKS":true,"STICK_ROT":0.4,"STICK_WIDTH":3.5,"STICK_LENGTH":1.5,"FILTERWID":2,"DEBAND_RADIUS":5,"DEBAND_BLEND":1,"ANISOTROPY_FILTERWID":2,"RELAX_UPDATE_VECTORS":false,"SHOW_IMAGE":false,"SHOW_DVIMAGE":false,"SPECIAL_OFFSETS":true,"XLARGE_MASK":false,"SMALL_MASK":false,"SCALE_POINTS":false,"SHOW_KDTREE":false,"DRAW_RMUL":1.5,"BLACK_BG":false,"SCALE":2,"PANX":0.22,"PANY":0.23,"ACCUM_ALPHA":0.3,"MAKE_NOISE":false,"RELAX_SPEED":5.4030000000000005,"SHARPNESS":0.1,"SHARPEN_LUMINENCE":false,"SHARPEN":false,"USE_LAB":false,"RASTER_IMAGE":false,"USE_MERSENNE":false,"TRI_MODE":false,"MAX_VCELL_SIZE":32,"RASTER_MODE":0,"TONE_CURVE":{"is_new_curve":true,"setting_id":"ui2_bn6_More Options_General_Tone CurveTONE_CURVE","generators":[{"type":1,"points":[{"0":0,"1":0,"eid":24,"flag":0,"deg":3,"tangent":1},{"0":0.29374999999999996,"1":0,"eid":176,"flag":0,"deg":3,"tangent":1},{"0":0.80625,"1":1,"eid":180,"flag":1,"deg":3,"tangent":1},{"0":1,"1":1,"eid":41,"flag":0,"deg":3,"tangent":1}],"deg":6,"eidgen":{"_cur":181}},{"type":2,"equation":"x"},{"type":4,"height":1,"offset":1,"deviation":0.3}],"version":0.5,"active_generator":0},"LOW_RES_CUBE":true,"GRID_MODE":false,"DRAW_TRANSPARENT":false,"STEPS":4498,"RAND_FAC":0,"DITHER_RAND_FAC":0.5,"DITHER_BLUE":true,"DITHER_BLUE_STEPS":14,"BG_PALETTE":false,"SIMPLE_PALETTE":false,"ALLOW_PURPLE":true,"CORRECT_FOR_SPACING":false,"HEXAGON_MODE":false,"ADAPTIVE_COLOR_DENSITY":true,"NO_IMAGE_FILTER":false,"RENDERED_IMAGE_SIZE":2048,"DITHER_COLORS":true,"PAL_COLORS":4,"SHOW_COLORS":true};
   
   exports.loadJSON(defaults);
   
@@ -235,15 +245,17 @@ define([
     var lst = [];
     for (var x=-i; x<=i; x++) {
       for (var y=-i; y<=i; y++) {
-        var x2 = x < 0 ? x+1 : x;
-        var y2 = y < 0 ? y+1 : y;
+        //why did I write these next two lines again?
+        //var x2 = x < 0 ? x+1 : x;
+        //var y2 = y < 0 ? y+1 : y;
+        var x2=x, y2=y;
         
         var dis = x2*x2 + y2*y2;
-        dis = dis != 0.0 ? Math.sqrt(dis) : 0.0;
+        //dis = dis != 0.0 ? Math.sqrt(dis) : 0.0;
         
         //console.log(dis.toFixed(3), r.toFixed(3));
         
-        if (dis > r) {
+        if (dis > r*r) {
           continue;
         }
         

@@ -519,7 +519,7 @@ define([
       colors.push([0, 0, 1]);
       
       if (ALLOW_PURPLE) {
-        colors.push(1, 0, 1);
+        colors.push([1, 0, 1]);
       }
       
       exports.gen_closest_map();
@@ -625,10 +625,12 @@ define([
     }
     
     //grey
+    /*
     for (var i=0; i<base; i++) {
       var clr = [i/base, i/base, i/base]; 
       colors.push(clr)
     }
+    //*/
     
     //orange-yellow
     for (var i=0; i<base; i++) {
@@ -888,7 +890,7 @@ define([
   }
   
   var colordis_not_diffusing = exports.colordis_not_diffusing = function colordis_not_diffusing(c1, c2) {
-    //return colordis(c1, c2);
+    return colordis(c1, c2);
     //XXX
     
     var dr = (c1[0]-c2[0]), dg = (c1[1]-c2[1]), db=(c1[2]-c2[2]);
@@ -921,25 +923,50 @@ define([
   }
   
   var colordis = exports.colordis = function colordis(c1, c2) {
+    let dis1 = (c1[0]-c2[0])**2 + (c1[1]-c2[1])**2 + (c1[2]-c2[2])**2;
+    let dis;
+    
+    let hsv1 = rgb_to_hsv(c1[0], c1[1], c1[2]);
+    let hsv2 = rgb_to_hsv(c2[0], c2[1], c2[2]);
+    
+    /*
+    if (hsv1[1] < 0.3)
+      hsv1[1] = Math.pow(hsv1[1], 0.5);
+    if (hsv2[1] < 0.3)
+      hsv2[1] = Math.pow(hsv1[2], 0.5);
+    //*/
+    
+    c1 = hsv1;
+    c2 = hsv2;
+    
+    //c1 = hsv_to_rgb(hsv1[0], hsv1[1], hsv1[2]);
+    //c2 = hsv_to_rgb(hsv2[0], hsv2[1], hsv2[2]);
+    
     var dr = (c1[0]-c2[0]), dg = (c1[1]-c2[1]), db=(c1[2]-c2[2]);
-    var dis = dr*dr + dg*dg + db*db;
     
     var w1 = 1.0;
-    var w2 = 0.7;
+    var w2 = 1.0;
     var w3 = 1.0;
     
     let wsum = w1+w2+w3;
-    w1 /= wsum;
-    w2 /= wsum;
-    w3 /= wsum;
+    //w1 /= wsum;
+    //w2 /= wsum;
+    //w3 /= wsum;
 
     dr *= w1;
     dg *= w2;
     db *= w3;
-
+    
     //dis = (Math.abs(dr)*w1 + Math.abs(dg)*w2 + Math.abs(db)*w3)/(w1+w2+w3);
-    dis = Math.abs(dr) + Math.abs(dg) + Math.abs(db);
+    //dis = Math.abs(dr) + Math.abs(dg) + Math.abs(db);
+    dis = Math.sqrt(dr*dr + dg*dg + db*db);
+    
+    dis = dis*0.0 + dis1*0.75;
+    
+    //let sat = (Math.abs(dr-dis) + Math.abs(dg-dis) + Math.abs(db-dis))/3.0;
+    //dis -= sat*0.4;
 
+    /*
     //compare how saturated (close to greyscale) each color is, too
     let s1=0, s2=0;
     for (let i=0; i<2; i++) {
@@ -954,7 +981,9 @@ define([
         s1 = sat;
     }
     
-    dis += Math.abs(s1-s2)*0.2;
+    dis += Math.abs(s1-s2)*0.5;
+    //*/
+    
     /*
     if (c2[0] == c2[1] && c2[0] == c2[2]) {
       var dis2 = dr*dr + dg*dg + db*db;
@@ -1249,6 +1278,12 @@ define([
     //console.log(sr, sg, sb);
     //console.log(c);
     return ret;
+  }
+  
+  let rgb_to_intensity = exports.rgb_to_intensity = function(r, g, b) {
+    //const w1 = 0.8, s2 = 1.0, w3 = 0.6;
+    const w1 = 0.4026, w2 = 0.405, w3 = 0.2022;
+    return (r*w1 + g*w2 + b*w3) / (w1 + w2 + w3);
   }
   
   return exports;
