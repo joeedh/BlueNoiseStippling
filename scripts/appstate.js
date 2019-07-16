@@ -443,8 +443,8 @@ define([
       window.relaxbut = relaxbut;
       
       rpanel.check("ANISOTROPY", "Anisotropic");
-      rpanel.slider("FILTERWID", "Filter Wid", 3.0, 0.001, 7.0, false, false);
-      rpanel.slider("ANISOTROPY_FILTERWID", "AnisotropicFilterWid", 3.0, 0.001, 7.0, false, false);
+      rpanel.slider("FILTERWID", "Filter Wid", 3.0, 0.001, 7.0, 0.001, false, false);
+      rpanel.slider("ANISOTROPY_FILTERWID", "AnisotropicFilterWid", 3.0, 0.001, 7.0, 0.001, false, false);
       rpanel.slider("RELAX_SPEED", "Relax Speed", 1.0, 0.001, 8.0, 0.001, true);
       rpanel.check("RELAX_UPDATE_VECTORS", "Update Vectors");
       
