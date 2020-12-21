@@ -64,7 +64,7 @@ define([
     SHOW_IMAGE : false,
     SHOW_DVIMAGE : false,
     
-    SPECIAL_OFFSETS : false, //use encoded lower-level offsets, multiplied by intensity
+    SPECIAL_OFFSETS : true, //use encoded lower-level offsets, multiplied by intensity
     XLARGE_MASK : false,
     SMALL_MASK : false,
     SCALE_POINTS : false,

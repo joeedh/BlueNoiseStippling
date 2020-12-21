@@ -115,6 +115,17 @@ define([
         });
       });
     }
+
+    clear() {
+      return new Promise((accept, reject) => {
+        this._connect().then((db) => {
+          let tx = db.transaction(this.dbname, 'readwrite');
+          let store = tx.objectStore(this.dbname);
+
+          store.clear();
+        }).catch(reject);
+      });
+    }
     
     keys() {
       return new Promise((accept, reject) => {

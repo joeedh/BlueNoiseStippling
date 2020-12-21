@@ -1787,7 +1787,12 @@ define([
       localStorage[this.setting_id] = JSON.stringify(this.curve);
       //window[this.setting_id.toUpperCase()] = this.curve;
     }
-        
+
+    clearData() {
+      delete localStorage[this.setting_id];
+      return this;
+    }
+
     //default_preset is optional, undefined
     load(default_preset) {
       if (this.setting_id in localStorage) {
@@ -1947,7 +1952,20 @@ define([
       this.saveVisibility();
       this.saveCurves();
     }
-    
+
+    clearData() {
+      for (let p of this.controls) {
+        if (p instanceof UI)
+          p.clearData();
+      }
+
+      for (let cw of this.curve_widgets) {
+        cw.clearData();
+      }
+
+      return this;
+    }
+
     load() {
       this.loadVisibility();
       this.loadCurves();

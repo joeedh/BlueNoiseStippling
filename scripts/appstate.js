@@ -82,7 +82,7 @@ define([
       
       var indexmap = [];
       
-      if (this.image == undefined && "startup_image_bn4" in localStorage) {
+      if (this.image === undefined && "startup_image_bn4" in localStorage) {
         this.image = new Image();
         this.image.src = localStorage.startup_image_bn4;
         var this2 = this;
@@ -92,6 +92,8 @@ define([
             this2.source_image_read(this2.image);
           });
         }
+      } else if (!("startup_image_bn4" in localStorage)) {
+        this.loadFlowerSvg();
       }
       
       this.bluenoise.init(DIMEN);
@@ -276,6 +278,7 @@ define([
     
     store_bluenoise_mask() {
       new indexdb_store.IndexDBStore("bluenoise_mask").write("data", _image_url);
+
       //localStorage.startup_mask_bn4 = _image_url;
     }
     
@@ -369,7 +372,36 @@ define([
       else
         cb.call(thisvar, img);
     }
-    
+
+    clearData() {
+      new indexdb_store.IndexDBStore("bluenoise_mask").clear();
+      delete localStorage.startup_image_bn4;
+      delete localStorage.startup_file_bn6;
+
+      this.gui.clearData();
+      this.gui2.clearData();
+
+      console.log("Cleared saved data");
+    }
+
+    loadFlowerSvg() {
+      requirejs(["flowersData"], (svg) => {
+        let img = document.createElement("img");
+        svg = "data:image/svg+xml," + escape(svg);
+
+        console.log(img);
+        img.src = svg;
+
+        img.onload = () => {
+          console.log("Loaded flower image!");
+          this.image = img;
+          this.on_image_read(this.image, () => {
+            this.source_image_read(this.image);
+          });
+        }
+      });
+    }
+
     source_image_read(img) {
       this.bluenoise.reset();
       this.image = img;
@@ -399,7 +431,12 @@ define([
       window.gui = gui;
       
       let cpanel = gui.panel("Actions");
-      
+
+      cpanel.button("step", "Run", function() {
+        _appstate.bluenoise.step();
+        redraw_all();
+      });
+
       cpanel.button('load_image', "Load Image", function() {
         var input = document.getElementById("input");
         input.click();
@@ -417,12 +454,11 @@ define([
         
         redraw_all();
       });
-      
-      cpanel.button("step", "Generate Points", function() {
-        _appstate.bluenoise.step();
-        redraw_all();
+
+      cpanel.button("clear", "Clear Saved Data", () => {
+        this.clearData();
       });
-      
+
       let rpanel = gui.panel("Relaxation");
 
       let sphc = rpanel.panel("Custom SPH Curve");
