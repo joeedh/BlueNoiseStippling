@@ -319,7 +319,55 @@ define([
       util.seed.pop();
     },
     
+    function draw_fancy_stick(g, x1, y1, x2, y2, nx, ny, w, dx, dy) {
+            nx *= 1.5;
+            ny *= 1.5;
+            
+            g.moveTo(x1-nx, y1-ny);
+            g.lineTo(x1+nx, y1+ny);
+            
+            let ax = x1 + (x2 - x1)/3.0;
+            let ay = y1 + (y2 - y1)/3.0;
+            let bx = x1 + (x2 - x1)*2.0/3.0;
+            let by = y1 + (y2 - y1)*2.0/3.0;
+            
+              
+            let fac = 4.0;
+            
+
+            if (STICK_ARROWS) {
+              let tscale = 1.0 / (w*0.75 + 0.25);
+              let t = 2*tscale, t2 = 4*tscale;
+              
+              g.bezierCurveTo(ax+nx*fac, ay+ny*fac, bx+nx*-fac, by+ny*-fac, x2+nx, y2+ny);
+              
+              g.lineTo(x2+nx, y2+ny);
+              g.lineTo(x2+nx*t, y2+ny*t);
+              g.lineTo(x2 + dx*t2, y2 + dy*t2);
+              g.lineTo(x2-nx*t, y2-ny*t);
+              g.lineTo(x2-nx, y2-ny);
+              
+              //g.lineTo(x2+nx, y2+ny);
+              g.lineTo(x2-nx, y2-ny);
+              
+              //g.bezierCurveTo(x2-nx*fac, y2-ny*fac, x1-nx*-fac, y1-ny*-fac, x1-nx, y1-ny);
+              g.bezierCurveTo(bx-nx*fac, by-ny*fac, ax-nx*-fac, ay-ny*-fac, x1-nx, y1-ny);
+
+            } else {
+              g.bezierCurveTo(ax+nx*fac, ay+ny*fac, bx+nx*-fac, by+ny*-fac, x2+nx, y2+ny);
+              
+              //g.lineTo(x2+nx, y2+ny);
+              g.lineTo(x2-nx, y2-ny);
+              
+              //g.bezierCurveTo(x2-nx*fac, y2-ny*fac, x1-nx*-fac, y1-ny*-fac, x1-nx, y1-ny);
+              g.bezierCurveTo(bx-nx*fac, by-ny*fac, ax-nx*-fac, ay-ny*-fac, x1-nx, y1-ny);
+            }
+
+    },
+    
     function draw_sticks(g) {
+      let stickrot = (STICK_ROT/180.0*Math.PI);
+
       var points = this.bluenoise.points, size = this.bluenoise.gridsize;
       
       g.save();
@@ -387,8 +435,8 @@ define([
           
           let thfac = 1.0 + inten;//(1.0 - inten)**0.15;
           
-          let dx = Math.sin(th + STICK_ROT)*szfac*thfac*STICK_LENGTH;
-          let dy = Math.cos(th + STICK_ROT)*szfac*thfac*STICK_LENGTH;
+          let dx = Math.sin(th + stickrot)*szfac*thfac*STICK_LENGTH;
+          let dy = Math.cos(th + stickrot)*szfac*thfac*STICK_LENGTH;
           
           let nx = -dy, ny = dx;
           let len = Math.sqrt(nx*nx + ny*ny);
@@ -407,23 +455,27 @@ define([
           dy *= w*swid/len;
           
           //*
-          g.moveTo(x1-nx, y1-ny);
-          g.lineTo(x1+nx, y1+ny);
-          
-          if (STICK_ARROWS) {
-            let tscale = 1.0 / (w*0.75 + 0.25);
-            let t = 3*tscale, t2 = 7*tscale;
-            
-            g.lineTo(x2+nx, y2+ny);
-            g.lineTo(x2+nx*t, y2+ny*t);
-            g.lineTo(x2 + dx*t2, y2 + dy*t2);
-            g.lineTo(x2-nx*t, y2-ny*t);
-            g.lineTo(x2-nx, y2-ny);
+          if (FANCY_STICKS) {
+            this.draw_fancy_stick(g, x1, y1, x2, y2, nx, ny, w, dx, dy);
           } else {
-            g.lineTo(x2+nx, y2+ny);
-            g.lineTo(x2-nx, y2-ny);
-          }
-          g.closePath();
+            g.moveTo(x1-nx, y1-ny);
+            g.lineTo(x1+nx, y1+ny);
+            
+            if (STICK_ARROWS) {
+              let tscale = 1.0 / (w*0.75 + 0.25);
+              let t = 3*tscale, t2 = 7*tscale;
+              
+              g.lineTo(x2+nx, y2+ny);
+              g.lineTo(x2+nx*t, y2+ny*t);
+              g.lineTo(x2 + dx*t2, y2 + dy*t2);
+              g.lineTo(x2-nx*t, y2-ny*t);
+              g.lineTo(x2-nx, y2-ny);
+            } else {
+              g.lineTo(x2+nx, y2+ny);
+              g.lineTo(x2-nx, y2-ny);
+            }
+            g.closePath();
+        }
           //*/
           
           /*

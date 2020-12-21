@@ -1,13 +1,24 @@
 var _colors = undefined;
 
 define([
-  'util', 'const'
-], function(util, cconst) {
+  'util', 'const', 'vectormath'
+], function(util, cconst, vectormath) {
   'use strict';
+  
+  let Vector3 = vectormath.Vector3;
+  let Vector4 = vectormath.Vector4;
   
   var exports = _colors = {};
   var colors = exports.colors = [];
-  
+
+  function getDitherFac() {
+    if (RASTER_IMAGE && RASTER_MODE === RASTER_MODES.DIFFUSION) {
+      return 0.0;
+    }
+
+    return DITHER_RAND_FAC;
+  }
+
   let DitherSampler = exports.DitherSampler = class DitherSampler extends Array {
     constructor(size=1024*32) {
       super();
@@ -450,7 +461,7 @@ define([
     return map;
   }
   
-  exports.closest_color_fast = function closest_color_fast(clr, nextout) {
+  exports.closest_color_fast = function closest_color_fast(clr, nextout, fr=0, fg=0, fb=0) {
     if (exports.closest_size == undefined) {
       exports.gen_closest_map();
     }
@@ -458,9 +469,9 @@ define([
     var size = exports.closest_size;
     var map = exports.closest_map;
     
-    var i = ~~(clr[0]*size+0.5);
-    var j = ~~(clr[1]*size+0.5);
-    var k = ~~(clr[2]*size+0.5);
+    var i = ~~(clr[0]*size+0.5+fr);
+    var j = ~~(clr[1]*size+0.5+fg);
+    var k = ~~(clr[2]*size+0.5+fb);
     
     i = Math.min(Math.max(i, 0), size-1);
     j = Math.min(Math.max(j, 0), size-1);
@@ -625,10 +636,12 @@ define([
     }
     
     //grey
-    /*
-    for (var i=0; i<base; i++) {
-      var clr = [i/base, i/base, i/base]; 
-      colors.push(clr)
+    //*
+    if (ALLOW_GREY) {
+      for (var i=0; i<base; i++) {
+        var clr = [i/base, i/base, i/base]; 
+        colors.push(clr)
+      }
     }
     //*/
     
@@ -648,6 +661,19 @@ define([
     for (var i=0; i<base; i++) {
       var clr = [(i+1)/base, 0.7, 0]; 
       colors.push(clr)
+    }
+    
+    //brown
+    for (let i=0; i<base; i++) {
+      let t = (i+1) / base;
+      
+      var clr = new Vector3([0.5, 0.35, 0.25*(1.0-t)]);
+      var clr2 = new Vector3(clr);
+      
+      clr.interp([1, 1, 1], t);
+      
+      
+      colors.push(clr);
     }
     
     //green
@@ -915,11 +941,23 @@ define([
     }
     
     if (DITHER_COLORS) { //small random factor
-      dis += (exports.ditherSampler.random()-0.5)*DITHER_RAND_FAC*dis;
+      dis += (exports.ditherSampler.random()-0.5)*getDitherFac()*dis;
       dis = Math.max(dis, 0.0);
     }
     
     return dis;
+  }
+  
+  var colordis_simple = exports.colordis_simple = function colordis_simple(c1, c2) {
+    let a = Math.abs(c1[0]-c2[0]);
+    let b = Math.abs(c1[1]-c2[1]);
+    let c = Math.abs(c1[2]-c2[2]);
+    
+    //const w1 = 100.0, w2 = 2.0, w3 = 3;
+    const w1 = 3.0, w2 = 2.0, w3 = 3;
+    
+    return (a*w1 + b*w2 + c*w3) / (w1 + w2 + w3);
+    //return Math.sqrt(a*a + b*b + c*c) / Math.sqrt(3.0);
   }
   
   var colordis = exports.colordis = function colordis(c1, c2) {
@@ -992,11 +1030,6 @@ define([
       dis = 0.5*dis2 + 0.5*dis;
     }//*/
     
-    if (DITHER_COLORS) { //small random factor
-      dis += (exports.ditherSampler.random() - 0.5)*DITHER_RAND_FAC;
-      //dis = Math.max(dis, 0.0);
-    }
-  
     return dis;
   }
   
@@ -1142,7 +1175,9 @@ define([
       var c2 = colors[i];
       var dis = not_diffusing ? colordis_not_diffusing(c1, c2) : colordis(c1, c2);
       
-      dis += -dfac; //dfac != 0.0 ? Math.fract(dis + dfac) : dis;
+      //dis += -dfac; //dfac != 0.0 ? Math.fract(dis + dfac) : dis;
+      dis += (exports.ditherSampler.random()-0.5)*getDitherFac()*dfac;
+      dis = Math.max(dis, 0.0);
 
       if (nextout !== undefined) {
         _cc_tmp1[i] = i;

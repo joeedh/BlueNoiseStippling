@@ -1237,6 +1237,17 @@ define([
       
       return this;
     }
+
+    multVecMatrix(matrix) {
+      var x=this[0];
+      var y=this[1];
+
+      this[0] = matrix.$matrix.m41+x*matrix.$matrix.m11+y*matrix.$matrix.m21+matrix.$matrix.m41;
+      this[1] = matrix.$matrix.m42+x*matrix.$matrix.m12+y*matrix.$matrix.m22+matrix.$matrix.m42;
+
+      let w = matrix.$matrix.m44+x*matrix.$matrix.m14+y*matrix.$matrix.m24;
+      return w;
+    }
   };
 
   var Quat = exports.Quat = class Quat extends Vector4 {

@@ -2,9 +2,9 @@ var __appstate = undefined;
 
 define([
   "util", "const", "bluenoise", "draw", "colors", "ui", "spectrum", "indexdb_store", "smoothmask_file",
-  "render"
+  "render", "exportsvg"
 ], function(util, cconst, bluenoise, draw, colors, ui, spectrum, indexdb_store, smoothmask_file,
-            render) 
+            render, exportsvg)
 {
   "use strict";
   
@@ -181,7 +181,7 @@ define([
       }
     }
     
-    renderImage() {
+    renderImage(canvas, g, drawBG=true) {
       var size = RENDERED_IMAGE_SIZE;
       var oldscale = window.SCALE;
       
@@ -203,18 +203,22 @@ define([
         w = size*asp;
         h = size;
       }
-      
-      var canvas = document.createElement("canvas");
-      var g = canvas.getContext("2d");
-      
+
+      if (!canvas) {
+        canvas = document.createElement("canvas");
+        g = canvas.getContext("2d");
+      }
+
       canvas.width = w;
       canvas.height = h;
       
       //make sure we have white background, not zero alpha
-      g.beginPath();
-      g.rect(0, 0, w, h);
-      g.fillStyle = BLACK_BG ? "black " : "white";
-      g.fill();
+      if (drawBG) {
+        g.beginPath();
+        g.rect(0, 0, w, h);
+        g.fillStyle = BLACK_BG ? "black " : "white";
+        g.fill();
+      }
       
       var scale = 0.5*Math.max(w, h); //canvas.width, canvas.height);
       
@@ -242,7 +246,7 @@ define([
         accept(canvas);
       });
     }
-    
+
     toJSON() {
       return {
         APP_VERSION : APP_VERSION,
@@ -252,6 +256,10 @@ define([
     
     loadJSON(json) {
       cconst.loadJSON(json.settings);
+
+      if (json.APP_VERSION < 0.6) {
+        json.STICK_ROT = (json.STICK_ROT/180.0) * Math.PI;
+      }
     }
     
     save() {
@@ -416,11 +424,18 @@ define([
       });
       
       let rpanel = gui.panel("Relaxation");
+
+      let sphc = rpanel.panel("Custom SPH Curve");
+
+      window.SPH_CURVE = sphc.curve("SPH_CURVE", "Custom SPH Curve").curve;
+      sphc.check("USE_SPH_CURVE", "Use SPH Curve");
+      sphc.close();
+
       rpanel.button("relax", "Relax", () => {
         _appstate.bluenoise.relax();
         redraw_all();
       });
-      
+
       let relaxbut = rpanel.button("relax_loop", "Start Loop", () => {
         if (_appstate.relaxtimer !== undefined) {
           relaxbut.domElement.parentNode.children[0].innerHTML = "Start Loop";
@@ -463,24 +478,25 @@ define([
       
       let apanel = panel.panel("Stick Mode")
       apanel.check("DRAW_STICKS", "Draw Sticks");
+      apanel.check("FANCY_STICKS", "Fancy Strokes");
       apanel.check("STICK_ARROWS", "Use Arrows");
-      apanel.slider("STICK_ROT", "StickRot", 0.0, -Math.PI, Math.PI, 0.0001, false, true);
+      apanel.slider("STICK_ROT", "StickRot", 0.0, -180, 180, 0.0001, false, true);
       apanel.slider("STICK_WIDTH", "StickWidth", 0.0, 0.0001, 12.0, 0.0001, false, true);
       apanel.slider("STICK_LENGTH", "StickLength", 0.0, 0.0001, 12.0, 0.0001, false, true);
-      apanel.slider("ANIS_W1", "W1", 0.0, -2.0, 16.0, 0.0001, false, false);
-      apanel.slider("ANIS_W2", "W2", 0.0, -2.0, 16.0, 0.0001, false, false);
+      apanel.slider("ANIS_W1", "W1", 0.0, -2.0, 2.0, 0.0001, false, false);
+      apanel.slider("ANIS_W2", "W2", 0.0, -2.0, 2.0, 0.0001, false, false);
       apanel.close();
       
       let dpanel = panel.panel("Dithering");
       dpanel.check("DITHER_COLORS", "Dither Colors");
-      dpanel.slider("DITHER_RAND_FAC", "Dither Random", 0.0, 0.0, 3.0,0.005, false, false);
+      dpanel.slider("DITHER_RAND_FAC", "Dither Random", 0.0, 0.0, 9.0,0.005, false, false);
       dpanel.check("DITHER_BLUE", "Blue Noise");
       dpanel.slider("DITHER_BLUE_STEPS", "Dither Uniformity", 6.0, 0.0, 256.0, 0.005, true, false);
       
       let fpanel = panel.panel("Image Filtering");
       fpanel.check("HIST_EQUALIZE", "EqualizeHistogram");
       fpanel.check("DEBAND_IMAGE", "Blur Derivatives");
-      fpanel.slider("DEBAND_RADIUS", "Blur Radius", 15, 1, 512, 1, true, false);
+      fpanel.slider("DEBAND_RADIUS", "Blur Radius", 15, 1, 90, 1, true, false);
       fpanel.slider("DEBAND_BLEND", "BlendWithOriginal", 0.0, 0, 1, 0.0001, false, false);
       
       fpanel.check("SHARPEN", "Sharpen");
@@ -506,7 +522,29 @@ define([
       panel2.slider("SCALE", "Scale", 1.0, 0.05, 5.0, 0.01, false, true);
       panel2.slider("PANX", "Pan X", 0.0, -1.5, 1.5, 0.01, false, true);
       panel2.slider("PANY", "Pan Y", 0.0, -1.5, 1.5, 0.01, false, true);
-      
+
+      var panel3 = gui.panel("Export SVG");
+      panel3.button("save_svg", "Save SVG", () => {
+        console.log("Export SVG!");
+
+        let data = exportsvg.exportSVG(this);
+
+
+        let a = document.createElement("a");
+
+        //data = "data:image/svg;charset=US-ASCII," + encodeURI(data);
+        //a.setAttribute("href", data);
+
+        let blob = new Blob([data], {type : "image/svg"});
+        let url = URL.createObjectURL(blob);
+
+        a.setAttribute("download", "render.svg");
+        a.setAttribute("href", url);
+
+        a.click();
+      });
+
+
       panel = gui2.panel("More Options");
       var panel2 = panel.panel("General");
       
@@ -552,6 +590,7 @@ define([
       panel2 = panel.panel("Palette");
       panel2.slider("PAL_COLORS", "Number of Colors (Times 9)", 4, 1, 32, 1, true);
       panel2.check("ALLOW_PURPLE", "Include Purple In Palette");
+      panel2.check("ALLOW_GREY", "Include Grey In Palette");
       panel2.check("SIMPLE_PALETTE", "Simple Palette");
       panel2.check("BG_PALETTE", "Black/white only");
       

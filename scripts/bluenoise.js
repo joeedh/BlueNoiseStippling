@@ -267,18 +267,42 @@ define([
             
             //clr[0] = clr[1] = clr[2] = fac;
           } else {
-            var ci = colors.closest_color(clr, nextout, dfac, true);
+            var ci = colors.closest_color(clr, nextout, 0.0, true);
+            
+            let clr2 = colors.colors[ci];
+            let err = colors.colordis_simple(clr, clr2);
+            let l = colors.colors.length/8 + 4;
+            l = 5;
+            if (window._l !== undefined) {
+              l = window._l;
+            }
+            
+            fac = 1.0 - fac;
+            
+            fac = (~~(fac*l))/l;
+            
+            //fac = Math.random();
+            dfac = fac * (window._f !== undefined ? window._f : 1.0);
+            dfac = (Math.fract(dfac)-0.5) * 2.0/l * (window._f2 !== undefined ? window._f2 : 1.0);;
+            
+            clr[0] += dfac;
+            clr[1] += dfac;
+            clr[2] += dfac;
+            
+            ci = colors.closest_color(clr, nextout, 0.0, true);
+
             
             let hsv = colors.rgb_to_hsv(clr[0], clr[1], clr[2]);
             let sat = 1.0 - hsv[1];
             
-            if (hsv[2]*sat > fac) {
+            if (ci===undefined || hsv[2]*sat > fac) {
               ci = 0;
             }
             
             for (var k=0; k<3; k++) {
               clr[k] = colors.colors[ci][k];
             }
+            //clr[0]=clr[1]=clr[2]=fac>0.8;
           }            
           
           /*
@@ -364,7 +388,20 @@ define([
       if (DITHER_BLUE) colors.ditherSampler.seed(this.getPixelSeed(1.0 - threshold));
 
       //var ci = colors.closest_color_fast(clr, colorout, 0.0);
-      var ci = DITHER_COLORS ? colors.closest_color(clr) : colors.closest_color_fast(clr);
+      var ci;
+      if (DITHER_COLORS) {
+        let ditherfac = DITHER_RAND_FAC*Math.random();
+
+        ci = colors.closest_color(clr, undefined, 0.0);
+
+        let clr2 = colors.colors[ci];
+        let err = colors.colordis(clr, clr2);
+
+        ci = colors.closest_color(clr, undefined, err);
+      } else {
+        ci = colors.closest_color_fast(clr);
+      }
+      //var ci = DITHER_COLORS ? colors.closest_color(clr) : colors.closest_color_fast(clr);
       
       /*
       if (DITHER_COLORS) {
@@ -499,6 +536,8 @@ define([
         console.log("\n");
       //}
       
+      this.calc_derivatives();
+
       if (TRI_MODE) {//} && !skip_points_display) {
         console.log("regenerating triangulation...");
         this.del();
@@ -508,7 +547,9 @@ define([
     },
 
     function getPixelSeed(threshold) {
-      //threshold = threshold**2;
+      //threshold = 1.0 - threshold;
+      threshold = threshold**0.5;
+
       return ~~(threshold * DITHER_BLUE_STEPS); //colors.colors.length * 0.25);
     },
 
@@ -523,6 +564,8 @@ define([
     },
     
     function step_diffusion(custom_steps, cur) {
+      console.log("Step Diffusion");
+
       let steps = custom_steps === undefined ? window.STEPS : custom_steps;
       
       var raster_image = this.raster_image;
@@ -1159,16 +1202,19 @@ define([
     function step(custom_steps, skip_points_display) {
       if (RASTER_IMAGE && RASTER_MODE == RASTER_MODES.PATTERN) {
         this.step_b();
+        this.calc_derivatives();
         return;
       }
       
       if (RASTER_IMAGE && RASTER_MODE == RASTER_MODES.CMYK && USE_CMYK_MASK) {
         this.step_cmyk_color_mask();
+        this.calc_derivatives();
         return;
       }
       
       if (RASTER_IMAGE && RASTER_MODE == RASTER_MODES.DIFFUSION) {
         this.cur = this.step_diffusion(custom_steps, this.cur);
+        this.calc_derivatives();
         return;
       } else if (this.smask !== undefined) {
         this.step_smask(custom_steps);
@@ -1492,7 +1538,7 @@ define([
 
           if (ok || RASTER_IMAGE) {
             if (DITHER_COLORS) {
-              if (DITHER_BLUE) colors.ditherSampler.seed(this.getPixelSeed(threshold));
+              if (DITHER_BLUE) colors.ditherSampler.seed(this.getPixelSeed(1.0 - threshold));
               ci = colors.closest_color(clr);
             } else {
               ci = colors.closest_color_fast(clr);
@@ -1682,8 +1728,11 @@ define([
             var clr2 = colors.colors[ci];
             
             if (clr2 == undefined) {
-              console.log(ci);
-              throw new Error("eek!");
+              //console.log(ci);
+              //throw new Error("eek!");
+              console.warn("eek!", ci);
+              ci = 0;
+              colors.colors[ci];
             }
             
             clr1[0] = clr2[0];
@@ -1767,6 +1816,8 @@ define([
         console.log("\n");
       }
       
+      this.calc_derivatives();
+
       if (TRI_MODE && !skip_points_display) {
         console.log("regenerating triangulation...");
         this.del();
@@ -2381,33 +2432,12 @@ define([
       return maxrad;
     },
     
-    function relax2() {
+    function calc_derivatives() {
+      console.log("updating point derivatives with respect to the image");
+      
       let size = this.dimen;
-      let ps = this.points;
-      
-      let minrad = 2.5 / (Math.sqrt(2)*this.dimen);
-      let maxrad = minrad*6;
-      
-      let sumdx=0, sumdy=0, sumw=0, x1=0, y1=0, r1=0, pi1, searchr;
-      let tree = this.calc_kdtree();
-      
-      let anis_w1 = ANIS_W1, anis_w2 = ANIS_W2;
-      /*
-      let asum = (anis_w1+anis_w2);
-      
-      if (asum != 0) {
-        anis_w1 /= asum;
-        anis_w2 /= asum;
-      }
-      //*/
-      
-      let p = [0, 0, 0];
-      const searchfac = ANISOTROPY ? ANISOTROPY_FILTERWID : FILTERWID;
-      const sqrt3 = Math.sqrt(3.0);
-
-      maxrad = this.calc_radii();
-      
       let isize = _appstate.image.width;
+      let ps = this.points;
 
       //calculate image gradients
       for (let pi=0; pi<ps.length; pi += PTOT) {
@@ -2441,6 +2471,38 @@ define([
         ps[pi+PDX] = dx/df;
         ps[pi+PDY] = dy/df;
       }
+    },
+    
+    function relax2() {
+      let size = this.dimen;
+      let ps = this.points;
+      
+      let minrad = 2.5 / (Math.sqrt(2)*this.dimen);
+      let maxrad = minrad*6;
+      
+      let sumdx=0, sumdy=0, sumw=0, x1=0, y1=0, r1=0, pi1, searchr;
+      let tree = this.calc_kdtree();
+      
+      let anis_w1 = ANIS_W1, anis_w2 = ANIS_W2;
+      /*
+      let asum = (anis_w1+anis_w2);
+      
+      if (asum != 0) {
+        anis_w1 /= asum;
+        anis_w2 /= asum;
+      }
+      //*/
+      
+      let p = [0, 0, 0];
+      const searchfac = ANISOTROPY ? ANISOTROPY_FILTERWID : FILTERWID;
+      const sqrt3 = Math.sqrt(3.0);
+
+      maxrad = this.calc_radii();
+      
+      let isize = _appstate.image.width;
+
+      //calculate image gradients
+      this.calc_derivatives();
       
       function distmetric(pi1, pi2) {
         let x1 = ps[pi1], y1 = ps[pi1+1], x2=ps[pi2], y2 = ps[pi2+1];
@@ -2538,8 +2600,8 @@ define([
           
           dx = (x2 - x1), dy = (y2 - y1);
           
-          dx1 = Math.sin(ps[pi1+PTH] + STICK_ROT + Math.PI*0.5);
-          dy1 = Math.cos(ps[pi1+PTH] + STICK_ROT + Math.PI*0.5);
+          dx1 = Math.sin(ps[pi1+PTH] + (STICK_ROT/180.0*Math.PI) + Math.PI*0.5);
+          dy1 = Math.cos(ps[pi1+PTH] + (STICK_ROT/180.0*Math.PI) + Math.PI*0.5);
           
           dis = Math.abs(dx*dy1 - dy*dx1);
           
@@ -2577,12 +2639,23 @@ define([
         }
         
         let w = 1.0 - dis / searchr;
-        //w = w*w*(3.0 - 2.0*w);
-        w = Math.pow(w, ANISOTROPY ? 6.0 : 4.0);
-        
+
+        if (USE_SPH_CURVE) {
+          w = SPH_CURVE.evaluate(w);
+        } else {
+          //guassian curve with std deviation of 0.37 to be a bit sharpening
+
+          //let r = this.height * Math.exp(-((s-this.offset)*(s-this.offset)) / (2*this.deviation*this.deviation));
+          w = Math.exp(-((w-1.0)**2) / (2*0.37**2));
+          //w = Math.pow(w, ANISOTROPY ? 6.0 : 4.0);
+          //w = w*w*(3.0 - 2.0*w);
+        }
+
         //*
         //go a bit above top radius to avoid gaps from not having the perfect number of points
-        let r3 = Math.max(r1, r2)*1.5;
+        //let r3 = Math.max(r1, r2)*2.0;//*1.5;
+        let r3 = r1+r2;
+
         //r3 = 0.5*(r1 + r2); 
 
         dx *= (r3 - dis)/dis;
@@ -2643,7 +2716,7 @@ define([
         sumdx /= sumw;
         sumdy /= sumw;
         
-        let fac = RELAX_SPEED*0.0625*(ANISOTROPY ? 2.0 : 1.0);
+        let fac = RELAX_SPEED*0.4625*(ANISOTROPY ? 0.4 : 1.0);
         if (ps[pi1+PBAD] > 0) {
           fac *= 0.15;
         }
