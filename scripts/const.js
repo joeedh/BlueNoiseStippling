@@ -58,7 +58,7 @@ define([
     STICK_WIDTH : 2,
     STICK_LENGTH : 2.0,
     FILTERWID : 3.0, 
-    ANISOTROPY_FILTERWID : 4.0, 
+    ANISOTROPY_FILTERWID : 2.0,
     RELAX_UPDATE_VECTORS : false,
     
     SHOW_IMAGE : false,
