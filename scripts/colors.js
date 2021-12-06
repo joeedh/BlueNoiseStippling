@@ -603,6 +603,18 @@ define([
     
     var base = PAL_COLORS;
     
+    if (1) {
+      let tot = base*10;
+      let rand = new util.MersenneRandom();
+      
+      for (let i=0; i<tot; i++) {
+        let r = rand.random();
+        let g = rand.random();
+        let b = rand.random();
+
+        colors.push([r, g, b]);
+      }
+    }
     //teal 2
     for (var i=0; i<base; i++) {
       var clr = [0, 0.7, (i+1)/base]; 
@@ -635,6 +647,11 @@ define([
       colors.push(clr)
     }
     
+    for (var i=0; i<base; i++) {
+      var clr = [(i+1)/base, 0.4, 0.25]; 
+      colors.push(clr)
+    }
+
     //grey
     //*
     if (ALLOW_GREY) {
@@ -987,19 +1004,16 @@ define([
     var w3 = 1.0;
     
     let wsum = w1+w2+w3;
-    //w1 /= wsum;
-    //w2 /= wsum;
-    //w3 /= wsum;
+    w1 /= wsum;
+    w2 /= wsum;
+    w3 /= wsum;
 
     dr *= w1;
     dg *= w2;
     db *= w3;
     
-    //dis = (Math.abs(dr)*w1 + Math.abs(dg)*w2 + Math.abs(db)*w3)/(w1+w2+w3);
-    //dis = Math.abs(dr) + Math.abs(dg) + Math.abs(db);
-    dis = Math.sqrt(dr*dr + dg*dg + db*db);
-    
-    dis = dis*0.0 + dis1*0.75;
+    //dis = Math.sqrt(dr*dr + dg*dg + db*db);
+    dis = (Math.abs(dr) + Math.abs(dg) + Math.abs(db));
     
     //let sat = (Math.abs(dr-dis) + Math.abs(dg-dis) + Math.abs(db-dis))/3.0;
     //dis -= sat*0.4;
