@@ -5,35 +5,35 @@ var _kdtree = undefined;
 define(["util", "vectormath"], function(util, vectormath) {
   "use strict";
   
-  var exports = _kdtree = {};
-  var Vector3 = vectormath.Vector3;
-  var Matrix4 = vectormath.Matrix4;
+  let exports = _kdtree = {};
+  let Vector3 = vectormath.Vector3;
+  let Matrix4 = vectormath.Matrix4;
   
   //maximum points per node before splitting
   //make sure to raise this after testing
-  var MAXPOINTS = 16
-  var MAXDEPTH = 512
+  let MAXPOINTS = 16
+  let MAXDEPTH = 512
   
-  var log_everything = false;
+  let log_everything = false;
   
   /*seems like embedding the points in the nodes, while wasteful of memory,
     should be more cache efficient than referencing another typed array*/
-  var NXMIN=0, NYMIN=1, NZMIN=2, NXMAX=3, NYMAX=4, NZMAX=5, NSPLITPLANE=6,
+  let NXMIN=0, NYMIN=1, NZMIN=2, NXMAX=3, NYMAX=4, NZMAX=5, NSPLITPLANE=6,
       NSPLITPOS=7, NCHILDA=8, NCHILDB=9, NTOTPOINT=10, TOTN = 11 + MAXPOINTS*4;
 
   //points are stored (x, y, z, id);
       
-  var _insert_split_out = [0, 0];
-  var _split_tmps = util.cachering.fromConstructor(Vector3, 1024);
-  var _insert_tmps = util.cachering.fromConstructor(Vector3, 1024);
-  var _split_tmps_2 = util.cachering.fromConstructor(Vector3, 1024);
-  var _foreach_tmp = new Vector3();
-  var _tmp = new Vector3();
-  var _search2_tmp = new Vector3();
+  let _insert_split_out = [0, 0];
+  let _split_tmps = util.cachering.fromConstructor(Vector3, 1024);
+  let _insert_tmps = util.cachering.fromConstructor(Vector3, 1024);
+  let _split_tmps_2 = util.cachering.fromConstructor(Vector3, 1024);
+  let _foreach_tmp = new Vector3();
+  let _tmp = new Vector3();
+  let _search2_tmp = new Vector3();
   
   let search_stack = new Int32Array(MAXDEPTH*8);
   
-  var KDTree = exports.KDTree = class KDTree {
+  let KDTree = exports.KDTree = class KDTree {
     constructor(min, max) {
       this.min = new Vector3(min);
       this.max = new Vector3(max);
@@ -60,7 +60,7 @@ define(["util", "vectormath"], function(util, vectormath) {
     }
     
     newNode(min, max) {
-      var maxnodes = this.data.length / TOTN;
+      let maxnodes = this.data.length / TOTN;
       
       if (this.usednodes >= maxnodes) {
         let newdata = new Float64Array(this.data.length*2);
@@ -74,8 +74,8 @@ define(["util", "vectormath"], function(util, vectormath) {
         this.data = newdata;
       }
       
-      var ni = this.usednodes*TOTN;
-      var data = this.data;
+      let ni = this.usednodes*TOTN;
+      let data = this.data;
       
       for (let j=ni; j<ni+TOTN; j++) {
         data[j] = 0;
@@ -117,13 +117,13 @@ define(["util", "vectormath"], function(util, vectormath) {
         }
         
         //not a leaf node?
-        if (data[ni+NCHILDA] != 0) {
+        if (data[ni+NCHILDA] !== 0) {
           let axis = data[ni+NSPLITPLANE];
           let split = data[ni+NSPLITPOS];
           
-          let paxis = axis == 0 ? x : (axis == 1 ? y : z);
+          let paxis = axis === 0 ? x : (axis === 1 ? y : z);
           
-          if (paxis == split) {
+          if (paxis === split) {
             //handle case of points exactly on boundary
             //distribute point randomly to children
             
@@ -163,7 +163,7 @@ define(["util", "vectormath"], function(util, vectormath) {
       let data = this.data;
       
       let recurse = (ni) => {
-        var n = cachering.next();
+        let n = cachering.next();
         
         for (var i=0; i<3; i++) {
           n.min[i] = data[ni+i];
@@ -180,7 +180,7 @@ define(["util", "vectormath"], function(util, vectormath) {
           cb(n);
         }
         
-        if (data[ni+NCHILDA] != 0) {
+        if (data[ni+NCHILDA] !== 0) {
           recurse(data[ni+NCHILDA]);
           recurse(data[ni+NCHILDB]);
         }
@@ -195,7 +195,7 @@ define(["util", "vectormath"], function(util, vectormath) {
       let recurse = (ni) => {
         let data = this.data;
         
-        if (data[ni+NCHILDA] != 0) {
+        if (data[ni+NCHILDA] !== 0) {
           recurse(data[ni+NCHILDA]);
           recurse(data[ni+NCHILDB]);
         } else {
@@ -235,7 +235,7 @@ define(["util", "vectormath"], function(util, vectormath) {
       let bestsplit = undefined;
       let bestfit = undefined;
       
-      if (totp == 0) {
+      if (totp === 0) {
         console.warn("TRIED TO SPLIT AN EMPTY NODE!");
       }
         
@@ -263,7 +263,7 @@ define(["util", "vectormath"], function(util, vectormath) {
         }
         fit = Math.abs(fit);
         
-        var size=0;
+        let size=0;
         for (let k=0; k<3; k++) {
           size += Math.max(data[ni+3+k], data[ni+k]);
         }
@@ -273,7 +273,7 @@ define(["util", "vectormath"], function(util, vectormath) {
         if (aspect > 0 && aspect < 1)
           aspect = 1 / aspect;
         
-        if (fit != totp && aspect > 0.001) {
+        if (fit !== totp && aspect > 0.001) {
           fit += aspect*7.0;
         }
         
@@ -338,7 +338,7 @@ define(["util", "vectormath"], function(util, vectormath) {
     }
     
     forEachPoint(x, y, r, callback, thisvar) {
-      var p = _foreach_tmp;
+      let p = _foreach_tmp;
       
       p[0] = x;
       p[1] = y;
@@ -365,7 +365,7 @@ define(["util", "vectormath"], function(util, vectormath) {
         
         let ni = stack[--si];
         
-        if (data[ni+NCHILDA] != 0.0) {
+        if (data[ni+NCHILDA] !== 0.0) {
           for (let step=0; step<2; step++) {
             let ni2 = data[ni + NCHILDA + step];
             let ok = 0;
@@ -377,7 +377,7 @@ define(["util", "vectormath"], function(util, vectormath) {
               ok += !!(p[i]+1.01*r >= a && p[i]-1.01*r <= b);
             }
             
-            if (ok == 3) {
+            if (ok === 3) {
               stack[si++] = ni2;
             }
           }
@@ -427,7 +427,7 @@ define(["util", "vectormath"], function(util, vectormath) {
           return;
         }
         
-        if (data[ni+NCHILDA] != 0) {
+        if (data[ni+NCHILDA] !== 0) {
           for (let si=0; si<2; si++) {
             let ni2 = data[ni+NCHILDA+si];
             let ok = 0;
@@ -439,11 +439,11 @@ define(["util", "vectormath"], function(util, vectormath) {
               ok += !!(p[i]+2*r >= a && p[i]-2*r <= b);
             }
             
-            if (ok == 3) {
+            if (ok === 3) {
               recurse(ni2);
             }
           }
-        } else if (data[ni+NCHILDA] == 0) {
+        } else if (data[ni+NCHILDA] === 0) {
           let totp = data[ni+NTOTPOINT];
           let k = ni+NTOTPOINT + 1;
           
@@ -487,7 +487,7 @@ define(["util", "vectormath"], function(util, vectormath) {
         g.fillStyle = "rgba(255, 150, 50, 0.25)";
         g.stroke();
         
-        if (d[ni+NCHILDA] == 0.0) { //leaf node?
+        if (d[ni+NCHILDA] === 0.0) { //leaf node?
           g.fill();
 
           let r = 0.25*(this.max[0] - this.min[0]) / Math.sqrt(this.totpoint);
@@ -508,7 +508,7 @@ define(["util", "vectormath"], function(util, vectormath) {
           g.fill();
         }
         
-        if (d[ni+NCHILDA] != 0) {
+        if (d[ni+NCHILDA] !== 0) {
           recurse(d[ni+NCHILDA]);
           recurse(d[ni+NCHILDB]);
         }
@@ -542,15 +542,15 @@ define(["util", "vectormath"], function(util, vectormath) {
         }
       }
       
-      var min = new Vector3();
-      var max = new Vector3();
+      let min = new Vector3();
+      let max = new Vector3();
       
       for (var i=0; i<3; i++) {
         min[i] = this.data[this.root+i];
         max[i] = this.data[this.root+3+i];
       }
       
-      var root = new Node(min, max);
+      let root = new Node(min, max);
       
       this.iterAllPoints((p, id) => {
         for (var j=0; j<3; j++) {
@@ -627,7 +627,7 @@ define(["util", "vectormath"], function(util, vectormath) {
           if (aspect > 0 && aspect < 1)
             aspect = 1 / aspect;
           
-          if (fit != node.length/4 && aspect > 0.001) {
+          if (fit !== node.length/4 && aspect > 0.001) {
             fit += aspect*7.0;
           }
 

@@ -104,6 +104,11 @@ define([
     }
     
     reset() {
+      colors.gen_colors();
+
+      window.USE_LAB = COLOR_SPACE === colors.ColorSpaces.LAB;
+      colors.setColorSpace(COLOR_SPACE);
+
       colors.gen_closest_map();
       
       if (RASTER_IMAGE)  {
@@ -305,7 +310,7 @@ define([
     on_mask_filechange(e, files) {
       console.log("got file", e, files)
       
-      if (files.length == 0) return;
+      if (files.length === 0) return;
       
       var reader = new FileReader();
       var this2 = this;
@@ -336,9 +341,9 @@ define([
       console.log("got image")
       var this2 = this;
       
-      if (img.width == 0) {
+      if (img.width === 0) {
         var timer = window.setInterval(function() {
-          if (img.width != 0) {
+          if (img.width !== 0) {
             window.clearInterval(timer);
             this2.on_image_read(img, cb, thisvar);
             
@@ -356,7 +361,7 @@ define([
       var g = canvas.getContext('2d')
       g.drawImage(img, 0, 0);
       
-      if (img.width == 0) {
+      if (img.width === 0) {
         console.log("eek", img.width, img.height);
         return;
       }
@@ -364,10 +369,10 @@ define([
       var data = g.getImageData(0, 0, img.width, img.height);
       img.data = data;
       
-      if (cb == undefined)
+      if (cb === undefined)
         return;
       
-      if (thisvar == undefined)
+      if (thisvar === undefined)
         cb(img);
       else
         cb.call(thisvar, img);
@@ -403,9 +408,13 @@ define([
     }
 
     source_image_read(img) {
-      this.bluenoise.reset();
+      //this.bluenoise.reset();
       this.image = img;
-      
+
+      //if (IMAGE_PALETTE) {
+      //colors.gen_colors();
+      //}
+
       try {
         localStorage.startup_image_bn4 = img.src;
       } catch (error) {
@@ -538,7 +547,10 @@ define([
       fpanel.check("SHARPEN", "Sharpen");
       fpanel.slider("SHARPNESS", "Sharpness", 0.5, 0.0, 3.5, 0.001, false);
       fpanel.check('SHARPEN_LUMINENCE', 'Luminence Only');
-      fpanel.check('USE_LAB', 'Use Lab Space');
+      //fpanel.check('USE_LAB', 'Use Lab Space');
+
+      fpanel.listenum("COLOR_SPACE", "Space", colors.ColorSpaces, COLOR_SPACE);
+
       fpanel.close();
       
       var panel2 = gui.panel("Save Tool")
@@ -594,6 +606,8 @@ define([
       
       panel2.check("SHOW_IMAGE", "Show Image");
       panel2.check("SHOW_DVIMAGE", "Show DvImage");
+      panel2.check("SHOW_RAW_IMAGE", "Raw Image");
+
       panel2.check("SHOW_COLORS", "Show Colors");
       panel2.check("ADAPTIVE_COLOR_DENSITY", "Denser For Color")
       panel2.check("HEXAGON_MODE", "Hexagonish");
@@ -628,6 +642,7 @@ define([
       panel2.check("ALLOW_PURPLE", "Include Purple In Palette");
       panel2.check("ALLOW_GREY", "Include Grey In Palette");
       panel2.check("SIMPLE_PALETTE", "Simple Palette");
+      panel2.check("IMAGE_PALETTE", "PaletteFromImage");
       panel2.check("BG_PALETTE", "Black/white only");
       
       var load_value = 'built-in-smooth';

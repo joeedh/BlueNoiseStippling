@@ -73,11 +73,14 @@ define([
       for (var ci = 0; ci < totcolor; ci++) {
         let clr = colors.colors[ci];
 
-        let r = ~~(clr[0]*255);
-        let g1 = ~~(clr[1]*255);
-        let b = ~~(clr[2]*255);
+        clr = colors.internal_to_rgb(clr[0], clr[1], clr[2]);
 
-        g.fillStyle = "rgba(" + r + "," + g1 + "," + b + ", 1)";
+        let r1 = ~~(clr[0]*255);
+        let g1 = ~~(clr[1]*255);
+        let b1 = ~~(clr[2]*255);
+
+
+        g.fillStyle = "rgba(" + r1 + "," + g1 + "," + b1 + ", 1)";
         g.strokeStyle = "white"; //g.fillStyle
 
         g.beginPath();
@@ -97,9 +100,9 @@ define([
           //if (pi % 4 !== 0) continue;
 
           let vj = pi*MAX_VCELL_SIZE;
-          let lastvpi = undefined;
+          let lastvpi;
 
-          let fx = undefined, fy = undefined;
+          let fx, fy;
           let rad = ps[i + PRADIUS]*0.9;
 
           if (SCALE_POINTS) {
@@ -110,14 +113,15 @@ define([
 
           fac *= DRAW_RMUL;
 
-          for (var j = 0; j < MAX_VCELL_SIZE; j++, vj++) {
+          let cx, cy, vpi;
+
+          for (let j = 0; j < MAX_VCELL_SIZE; j++, vj++) {
             let vpi = vcells[vj];
 
             if (vpi === -1) break;
 
             let x2 = ps[lastvpi*PTOT], y2 = ps[lastvpi*PTOT + 1];
             let x3 = ps[vpi*PTOT], y3 = ps[vpi*PTOT + 1];
-            let cx, cy;
 
             lastvpi = vpi;
 
@@ -165,10 +169,11 @@ define([
 
       for (var si = 0; si < colors.colors.length; si++) {
         let c = colors.colors[si];
+        c = colors.internal_to_rgb(c[0], c[1], c[2]);
 
-        let r = ~~(c[0]*255);
+        let r1 = ~~(c[0]*255);
         let g1 = ~~(c[1]*255);
-        let b = ~~(c[2]*255);
+        let b1 = ~~(c[2]*255);
         let alpha = 1.0;
 
         if (DRAW_TRANSPARENT) {
@@ -176,10 +181,10 @@ define([
         }
 
         if (!SHOW_COLORS) {
-          r = g1 = b = BLACK_BG ? 255 : 1;
+          r1 = g1 = b1 = BLACK_BG ? 255 : 1;
         }
 
-        g.fillStyle = "rgba(" + r + "," + g1 + "," + b + "," + alpha + ")";
+        g.fillStyle = "rgba(" + r1 + "," + g1 + "," + b1 + "," + alpha + ")";
 
         g.beginPath();
 
@@ -260,7 +265,7 @@ define([
         }
 
         if (!SHOW_COLORS) {
-          r = g1 = b = 1.0;
+          r = g1 = b = BLACK_BG ? 255 : 1.0;
         }
 
         g.fillStyle = "rgba(" + r + "," + g1 + "," + b + "," + alpha + ")";
@@ -331,12 +336,12 @@ define([
       let by = y1 + (y2 - y1)*2.0/3.0;
 
 
-      let fac = 4.0;
+      let fac = 3.0;
 
 
       if (STICK_ARROWS) {
         let tscale = 1.0/(w*0.75 + 0.25);
-        let t = 2*tscale, t2 = 4*tscale;
+        let t = 0.5*tscale, t2 = tscale;
 
         g.bezierCurveTo(ax + nx*fac, ay + ny*fac, bx + nx* -fac, by + ny* -fac, x2 + nx, y2 + ny);
 
@@ -376,10 +381,11 @@ define([
 
       for (var si = 0; si < colors.colors.length; si++) {
         let c = colors.colors[si];
+        c = colors.internal_to_rgb(c[0], c[1], c[2]);
 
-        let r = ~~(c[0]*255);
+        let r1 = ~~(c[0]*255);
         let g1 = ~~(c[1]*255);
-        let b = ~~(c[2]*255);
+        let b1 = ~~(c[2]*255);
         let alpha = 1.0;
 
         if (DRAW_TRANSPARENT) {
@@ -387,11 +393,11 @@ define([
         }
 
         if (!SHOW_COLORS) {
-          r = g1 = b = 1.0;
+          r1 = g1 = b1 = BLACK_BG ? 255 : 1.0;
         }
 
-        g.strokeStyle = "rgba(" + r + "," + g1 + "," + b + "," + alpha + ")";
-        g.fillStyle = "rgba(" + r + "," + g1 + "," + b + "," + alpha + ")";
+        g.strokeStyle = "rgba(" + r1 + "," + g1 + "," + b1 + "," + alpha + ")";
+        g.fillStyle = "rgba(" + r1 + "," + g1 + "," + b1 + "," + alpha + ")";
 
         g.beginPath();
 

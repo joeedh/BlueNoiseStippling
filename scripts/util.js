@@ -60,32 +60,32 @@ define([
     }
   ]);
 
-  var cachering = exports.cachering = Class(Array, [
-    function constructor(func, size) {
-      Array.call(this); //super()
-      
+  var cachering = exports.cachering = class cachering extends Array {
+    constructor(func, size) {
+      super();
+
       this.cur = 0;
-      
-      for (var i=0; i<size; i++) {
+
+      for (let i = 0; i < size; i++) {
         this.push(func());
       }
-    },
-    
-    Class.static(function fromConstructor(cls, size) {
-      var func = function() {
+    }
+
+    static fromConstructor(cls, size) {
+      let func = function () {
         return new cls();
       }
-      
+
       return new exports.cachering(func, size);
-    }),
-    
-    function next() {
-      var ret = this[this.cur];
-      this.cur = (this.cur+1)%this.length;
-      
+    }
+
+    next() {
+      let ret = this[this.cur];
+      this.cur = (this.cur + 1)%this.length;
+
       return ret;
     }
-  ]);
+  }
 
   var SetIter = exports.SetIter = Class([
     function constructor(set) {
