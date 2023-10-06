@@ -3,7 +3,7 @@ import cconst from './const.js';
 import * as draw from './draw.js';
 import * as colors from './colors.js';
 import * as diffusion from './diffusion.js';
-import * as delaunay from './delaunay.js';
+import './delaunay.js';
 import * as kdtree from './kdtree.js';
 import * as kdtree2 from './kdtree2.js';
 import * as smoothmask from './smoothmask.js';
@@ -2221,8 +2221,9 @@ export class BlueNoise {
 
         let vk = v1*MAX_VCELL_SIZE;
         let bad = 0;
+        let k = 0;
 
-        for (let k = 0; k < MAX_VCELL_SIZE; k++, vk++) {
+        for (k = 0; k < MAX_VCELL_SIZE; k++, vk++) {
           if (vcells[vk] === v2) {
             bad = 1;
             break;
