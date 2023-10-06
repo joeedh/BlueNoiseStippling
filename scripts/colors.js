@@ -523,8 +523,8 @@ export function closest_color_fast(clr, nextout, fr = 0, fg = 0, fb = 0) {
 
 let _last_map = undefined;
 
-let colors_used = new Array();
-let lab_colors = [];
+export var colors_used = new Array();
+export var lab_colors = [];
 
 
 let palrand = new util.MersenneRandom();

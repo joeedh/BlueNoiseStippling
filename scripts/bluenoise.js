@@ -600,7 +600,7 @@ export class BlueNoise {
     let filter = this.filter;
     let points = this.points;
     let start_r = this.start_r;
-    let fil = filter.get(f);
+    let fil = filter.get(0.0);
     let sqrt3 = Math.sqrt(3.0);
 
     let do_clrw = 0; //attempt at barycentric coloring

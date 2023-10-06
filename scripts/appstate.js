@@ -8,7 +8,7 @@ import * as colors from './colors.js';
 import * as ui from './ui.js';
 import * as spectrum from './spectrum.js';
 import * as indexdb_store from './indexdb_store.js';
-import * as smoothmask_file from './smoothmask_file.js';
+import smoothmask_file from './smoothmask_file.js';
 import * as render from './render.js';
 import * as exportsvg from './exportsvg.js';
 
@@ -788,7 +788,7 @@ export function start() {
 
     _appstate.on_mask_filechange(e, this.files);
   });
-  
+
   _appstate.on_load();
 }
 
