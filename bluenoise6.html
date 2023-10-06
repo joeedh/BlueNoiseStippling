@@ -1,42 +1,45 @@
 <!DOCTYPE html>
 <html>
 <head><title>Blue Noise 6</title>
-<script type="application/javascript" src="scripts/require.js" data-main="scripts/appstate">
-</script>
+  <!--
+ <script type="application/javascript" src="scripts/require.js" data-main="scripts/appstate">
+ </script>
+ -->
+  <script type="module">
+    import * as appstate from './scripts/appstate.js';
+    window.startapp = function () {
+      appstate.start();
+    }
+  </script>
 
-<script>
-window.onload1 = function() {
-  //_bluenoise.onload1();
-}
-</script>
+  <style>
+      #propdiv {
+          position: absolute;
+          left: 70%;
+          overflow-y: scroll;
+          height: 80%;
+      }
 
-<style>
-#propdiv {
-  position: absolute;
-  left: 70%;
-  overflow-y: scroll;
-  height: 80%;
-}
+      #input {
+          visibility: hidden;
+      }
 
-#input {
-  visibility : hidden;
-}
-
-#input2 {
-  visibility : hidden;
-}
-</style>
+      #input2 {
+          visibility: hidden;
+      }
+  </style>
 </head>
 
-<body onload=onload1()>
-  <div id="propdiv">
-    <p>
+<body onload=startapp()>
+<div id="propdiv">
+  <p>
     <input type="file" id="input"></input>
     <input type="file" id="input2"></input>
-    </p>
-    
-    <ul id="form">
-    </ul></div>
-  <canvas id="canvas">
-  </canvas>
+  </p>
+
+  <ul id="form">
+  </ul>
+</div>
+<canvas id="canvas">
+</canvas>
 </body>

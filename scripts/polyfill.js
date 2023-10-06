@@ -1,10 +1,10 @@
-if (window.Symbol == undefined) { //eek!
-  var sym_registry = {};
+if (window.Symbol === undefined) { //eek!
+  let sym_registry = {};
   
   window.Symbol = (function() {   //a micro module
-    var key_idgen = 1;
+    let key_idgen = 1;
     
-    var Symbol = function(key) {
+    let Symbol = function(key) {
       return "$__" + key + "_" + (key_idgen++) + "__$";
     }
     
@@ -18,8 +18,8 @@ if (window.Symbol == undefined) { //eek!
     }
     
     Symbol.keyFor = function(sym) {
-      for (var k in Symbol._sym_registry) {
-        if (_sym_registry[k] == sym)
+      for (let k in Symbol._sym_registry) {
+        if (_sym_registry[k] === sym)
           return k;
       }
     }
@@ -34,14 +34,14 @@ if (window.Symbol == undefined) { //eek!
 }
 
 window.list = function list(iter) {
-  var ret = [];
+  let ret = [];
   
-  if (typeof iter == "string") {
+  if (typeof iter === "string") {
     iter = new String();
   }
   
   if (Symbol.iterator in iter) {
-    for (var item of iter) {
+    for (let item of iter) {
       ret.push(item);
     }
   } else {
@@ -64,7 +64,7 @@ ArrayIter.prototype[Symbol.iterator] = function() {
 }
 
 ArrayIter.prototype.next = function() {
-  var ret = this.ret;
+  let ret = this.ret;
   
   if (this.i >= this.array.length) {
     ret.done = true;
@@ -76,19 +76,19 @@ ArrayIter.prototype.next = function() {
   return ret;
 }
 
-if (Math.sign == undefined) {
+if (Math.sign === undefined) {
   Math.sign = function sign(f) {
     return (f>0.0)*2.0-1.0;
   };
 }
 
-if (Math.fract == undefined) {
+if (Math.fract === undefined) {
   Math.fract = function fract(f) {
     return f - Math.floor(f);
   };
 }
 
-if (Math.tent == undefined) {
+if (Math.tent === undefined) {
   Math.tent = function tent(f) {
     return 1.0 - Math.abs(Math.fract(f)-0.5)*2.0;
   };
@@ -103,13 +103,13 @@ window.time_ms = function() {
 //  return new ArrayIter(this);
 //}
 
-if (Array.prototype.clone == undefined) {
+if (Array.prototype.clone === undefined) {
   Array.prototype.clone = function() {
     return this.slice(0);
   }
 }
 
-if (Array.prototype.pop_i == undefined) {
+if (Array.prototype.pop_i === undefined) {
   Array.prototype.pop_i = function(idx) {
     if (idx < 0 || idx >= this.length) {
       throw new Error("Index out of range");
@@ -124,9 +124,9 @@ if (Array.prototype.pop_i == undefined) {
   }
 }
 
-if (Array.prototype.remove == undefined) {
+if (Array.prototype.remove === undefined) {
   Array.prototype.remove = function(item, suppress_error) {
-    var i = this.indexOf(item);
+    let i = this.indexOf(item);
     
     if (i < 0) {
       if (suppress_error)
@@ -141,7 +141,7 @@ if (Array.prototype.remove == undefined) {
   }
 }
 
-if (String.prototype.contains == undefined) {
+if (String.prototype.contains === undefined) {
   String.prototype.contains = function(substr) {
     return String.search(substr) >= 0;
   }

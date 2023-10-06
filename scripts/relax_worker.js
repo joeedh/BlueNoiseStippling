@@ -6,7 +6,7 @@ self.onmessage = function(e) {
   
   data = new Float64Array(data);
   
-  if (data.length == 4) { //okay message
+  if (data.length === 4) { //okay message
     return;
   }
   

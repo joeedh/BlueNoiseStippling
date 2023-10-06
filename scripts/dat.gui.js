@@ -12,7 +12,7 @@
  */
 
 /** @namespace */
-var dat = dat || {};
+var dat = window.dat = window.dat || {};
 
 /** @namespace */
 dat.gui = dat.gui || {};
