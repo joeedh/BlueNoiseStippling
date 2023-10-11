@@ -37,6 +37,8 @@ window.newline_data_url = function (s) {
 }
 
 export class AppState {
+  #last_size_key = "";
+
   constructor(g, canvas) {
     this.bluenoise = new bluenoise.BlueNoise();
     this.drawer = new draw.Drawer(this);
@@ -139,7 +141,17 @@ export class AppState {
     this.drawer.reset(RASTER_IMAGE ? this.outimage : undefined);
   }
 
+
   draw() {
+    let dpi = devicePixelRatio;
+
+    let w = ~~((window.innerWidth - 35)*dpi);
+    let h = ~~((window.innerHeight - 35)*dpi);
+    this.canvas.width = w;
+    this.canvas.height = h;
+    this.canvas.style["width"] = (w/dpi) + "px";
+    this.canvas.style["height"] = (h/dpi) + "px";
+
     if (HIGH_QUALITY_RASTER && this.hqrender === undefined) {
       this.hqrender = new render.CircleRender(this.canvas.width, this.canvas.height);
     } else if (HIGH_QUALITY_RASTER) {
@@ -432,6 +444,13 @@ export class AppState {
   }
 
   on_tick() {
+    let key = `${devicePixelRatio}:${window.innerWidth}:${window.innerHeight}`;
+
+    if (this.#last_size_key !== key) {
+      this.#last_size_key = key;
+      this.draw();
+    }
+
     this.gui.on_tick();
     this.gui2.on_tick();
   }

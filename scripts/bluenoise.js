@@ -2458,33 +2458,30 @@ export class BlueNoise {
     let isize = _appstate.image.width;
     let ps = this.points;
 
-    //calculate image gradients
+    /* Calculate image gradients. */
     for (let pi = 0; pi < ps.length; pi += PTOT) {
       let x = ps[pi], y = ps[pi + 1];
-      let clr = this.sampler(x, y, this.gridsize, 1.0);
+      let clr = this.sampler(x, y, this.gridsize, 1.0, undefined, true);
 
-      if (clr[0] < 0) { //dropped point?
+      /* Have we already done this point? */
+      if (ps[pi+PDX] !== 0 || ps[pi+PDY] !== 0) {
+        continue;
+      }
+
+      if (clr[0] < 0) { /* Dropped point? */
         continue;
       }
 
       let f1 = (clr[0] + clr[1] + clr[2])/3.0;
-
       let df = 5/isize;
 
-      clr = this.sampler(x + df, y, this.gridsize, 1.0);
+      clr = this.sampler(x + df, y, this.gridsize, 1.0, undefined, true);
       let f2 = (clr[0] + clr[1] + clr[2])/3.0;
 
-      clr = this.sampler(x, y + df, this.gridsize, 1.0);
+      clr = this.sampler(x, y + df, this.gridsize, 1.0, undefined, true);
       let f3 = (clr[0] + clr[1] + clr[2])/3.0;
 
       let dx = f2 - f1, dy = f3 - f1;
-
-      //let l = Math.sqrt(dx*dx + dy*dy);
-
-      //if (l > 0) {
-      //dx /= l;
-      //dy /= l;
-      //}
 
       ps[pi + PINTEN] = f1;
       ps[pi + PDX] = dx/df;

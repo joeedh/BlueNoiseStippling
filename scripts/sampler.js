@@ -593,35 +593,10 @@ export function sampler(x, y, size, rad, no_filter, use_debanded) {
   let img = use_debanded ? _appstate.bluenoise.dvimage : _appstate.image.data;
   let ret;
 
-  /*
-  ret = sampler_rets.next();
-  let f = Math.sqrt(x*x + y*y)/Math.sqrt(2);
-  f = f*0.5 + 0.5;
-
-  f = Math.floor(f*255)/255;
-
-  ret[0] = ret[1] = ret[2] = f;
-  ret[3] = 1.0;
-  return ret;
-  //*/
-
   let asp = img.width/img.height;
 
   x = (x*0.5) + 0.5;
   y = (y*0.5) + 0.5;
-
-  /*
-  sampler_ret[0] = sampler_ret[1] = sampler_ret[2] = 0;
-  sampler_ret[3] = 1;
-
-  //return colors.lab_to_rgb(100, 0, -80);
-  sampler_ret[0] = 0;
-  sampler_ret[1] = 2;
-  sampler_ret[2] = 0.8;
-  return sampler_ret;//*/
-
-  //var use_lab = x > 0.5;
-  //use_lab = use_lab && (SHARPEN_LUMINENCE||USE_LAB);
 
   const sharpen_lumin = SHARPEN_LUMINENCE && colors.internal_to_rgb === colors.lab_to_rgb;
 
@@ -633,9 +608,6 @@ export function sampler(x, y, size, rad, no_filter, use_debanded) {
   } else {
     x /= asp;
   }
-
-  let sum = 0.0;
-  let tot = 0.0;
 
   if (NO_IMAGE_FILTER)
     no_filter = 1;
@@ -679,12 +651,9 @@ export function sampler(x, y, size, rad, no_filter, use_debanded) {
   let filter = Math.max(filterw*0.5, filterh*0.5)*1.5 + 2;
 
   if (isNaN(filter)) {
-    //throw new Error("'filter' was NaN in sampler!");
     console.log("EEEK! 'filter' was NaN in sampler!", img.width, img.height,
       _appstate.bluenoise.gridsize);
   }
-
-  //filter = isNaN(filter) ? 3.0 : filter;
 
   let fwid = Math.ceil(filter);
   fwid = Math.max(fwid, 4.0);
@@ -701,7 +670,6 @@ export function sampler(x, y, size, rad, no_filter, use_debanded) {
   let totsampled = 0;
 
   let sumr = 0, sumg = 0, sumb = 0, suma = 0;
-  let totr = 0, totg = 0, totb = 0, tota = 0;
 
   window._totsample = totsample;
 
@@ -746,17 +714,18 @@ export function sampler(x, y, size, rad, no_filter, use_debanded) {
     g = TONE_CURVE.evaluate(g);
     b = TONE_CURVE.evaluate(b);
 
-    //two options: either blend color with white using alpha,
-    //or multiply with alpha;
+    /* Two options: either blend color with white using alpha,
+       or multiply with alpha.
+     */
 
-    //blend with white?
+    /* Blend with white? */
     /*
     r += (1.0 - r)*a;
     g += (1.0 - g)*a;
     b += (1.0 - b)*a;
     //*/
 
-    //mul with alpha.  we're assuming they're not already premul
+    /* Mul with alpha.  we're assuming they're not already premul. */
     r *= 1.0 - a;
     if (!USE_LAB) {
       g *= 1.0 - a;
@@ -780,8 +749,6 @@ export function sampler(x, y, size, rad, no_filter, use_debanded) {
     sumg += g*w2;
     sumb += b*w2;
     suma += a*w2;
-
-    //break;
   }
 
   if (!totsampled) {
@@ -793,18 +760,9 @@ export function sampler(x, y, size, rad, no_filter, use_debanded) {
 
   ret = sampler_rets.next();
 
-  /*
-  ret[0] = sumr;
-  ret[1] = sumg;
-  ret[2] = sumb;
-  ret[3] = suma;
-  //*/
-
-  //*
   ret[0] = Math.min(Math.max(sumr, 0.0), 1.0);
   ret[1] = Math.min(Math.max(sumg, 0.0), 1.0);
   ret[2] = Math.min(Math.max(sumb, 0.0), 1.0);
   ret[3] = Math.min(Math.max(suma, 0.0), 1.0);
-  //*/
   return ret;
 }
