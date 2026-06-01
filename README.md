@@ -3,7 +3,7 @@
 This is a little stippling app. It uses a blue noise mask to position
 dots, and Floyd Steinberg dithering to color them.
 
-[Click here to try it out](http://joeedh.github.io/BlueNoiseStippling/bluenoise6.html)
+[Click here to try it out](http://joeedh.github.io/BlueNoiseStippling)
 
 ![example image](http://joeedh.github.io/BlueNoiseStippling/examples/stippe_2.png "Example 1")
 
