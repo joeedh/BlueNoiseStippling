@@ -2,7 +2,18 @@
 // samples the image, applies the caller's `refine` callback, and on success
 // appends a stipple point. Returns the new point index, or undefined if the
 // sample was discarded.
-import { config, PTOT, PRADIUS, PINTEN, PID, PRADIUS2, POX, POY, POLDX, POLDY } from "../const.js";
+import {
+  config,
+  PTOT,
+  PRADIUS,
+  PINTEN,
+  PID,
+  PRADIUS2,
+  POX,
+  POY,
+  POLDX,
+  POLDY,
+} from "../const.js";
 import * as colors from "../colors.js";
 import type { BlueNoise } from "../bluenoise.js";
 import type { InnerLoopArg, Vec } from "./internal.js";

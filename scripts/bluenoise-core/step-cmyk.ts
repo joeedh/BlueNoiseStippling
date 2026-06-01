@@ -39,9 +39,7 @@ export function stepCmykColorMask(
   let mscale = config.SMALL_MASK ? 1 : config.XLARGE_MASK ? 8 : 4;
 
   let rasterfac =
-    raster_image !== undefined
-      ? ~~Math.ceil(raster_image.width / bn.dimen)
-      : 1;
+    raster_image !== undefined ? ~~Math.ceil(raster_image.width / bn.dimen) : 1;
 
   for (let si = 0; si < steps; si++, bn.cur++) {
     if (bn.cur >= size * size) {

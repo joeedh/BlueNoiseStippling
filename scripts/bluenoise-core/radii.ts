@@ -1,5 +1,14 @@
 // Per-point radius computation, driven by the mask's tone distribution (CDF).
-import { config, PTOT, PLVL, PINTEN, PRADIUS2, POX, POY, PBAD } from "../const.js";
+import {
+  config,
+  PTOT,
+  PLVL,
+  PINTEN,
+  PRADIUS2,
+  POX,
+  POY,
+  PBAD,
+} from "../const.js";
 import type { BlueNoise } from "../bluenoise.js";
 
 export function getMaskPoints(bn: BlueNoise): number[] {

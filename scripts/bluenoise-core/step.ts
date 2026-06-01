@@ -496,7 +496,9 @@ function stepDefault(
       let db = clr1[2] - clr2[2];
 
       let sat =
-        Math.abs(1.0 - clr[0]) + Math.abs(1.0 - clr[1]) + Math.abs(1.0 - clr[2]);
+        Math.abs(1.0 - clr[0]) +
+        Math.abs(1.0 - clr[1]) +
+        Math.abs(1.0 - clr[2]);
       sat /= 3.0;
 
       //scale color error by spacing of points
