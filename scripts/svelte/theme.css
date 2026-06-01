@@ -45,6 +45,72 @@
   display: flex;
   flex-direction: column;
   user-select: none;
+  pointer-events: auto;
+}
+
+/* Floating toggle + backdrop are desktop-hidden; the media query below turns
+   the rail into a slide-in drawer on narrow / portrait screens. */
+.bn-fab {
+  display: none;
+}
+.bn-backdrop {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  :root {
+    --rail-w: min(88vw, 380px);
+  }
+
+  .bn-rail {
+    transform: translateX(105%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 2;
+  }
+  .bn-rail.open {
+    transform: translateX(0);
+  }
+
+  .bn-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    z-index: 1;
+  }
+  .bn-backdrop.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .bn-fab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #05201c;
+    border: none;
+    font-size: 21px;
+    line-height: 1;
+    box-shadow:
+      0 6px 22px rgba(0, 0, 0, 0.55),
+      0 0 0 1px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    pointer-events: auto;
+    z-index: 3;
+  }
+  .bn-fab:active {
+    transform: scale(0.93);
+  }
 }
 
 .bn-rail__head {

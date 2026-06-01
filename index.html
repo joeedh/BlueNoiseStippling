@@ -16,13 +16,16 @@
         overflow: hidden;
       }
 
-      /* The Svelte control panel mounts here as a fixed right-hand rail. */
+      /* The Svelte control panel mounts here as a fixed right-hand rail.
+         pointer-events:none so the (transparent) container never blocks the
+         canvas; the rail / FAB / backdrop re-enable events on themselves. */
       #ui-root {
         position: fixed;
         top: 0;
         right: 0;
         height: 100%;
         z-index: 10;
+        pointer-events: none;
       }
 
       #canvas {

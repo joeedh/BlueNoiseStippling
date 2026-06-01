@@ -67,6 +67,7 @@
   function reset() {
     host.actionReset();
     resyncBag(cfg); // reset() mutates config (e.g. USE_LAB) out-of-band
+    closeOnMobile();
   }
 
   function toggleLoop() {
@@ -90,9 +91,36 @@
     "Weighted Sample Removal": "weighted_sample_removal_mask_1.png",
   };
   let maskChoice = $state("built-in-smooth");
+
+  // --- mobile drawer ---
+  // On narrow/portrait screens the rail is a slide-in drawer (hidden by
+  // default so the canvas gets the full screen); on desktop it's always shown.
+  let panelOpen = $state(false);
+  const isMobile = () => window.matchMedia("(max-width: 768px)").matches;
+  function closeOnMobile() {
+    if (isMobile()) panelOpen = false;
+  }
 </script>
 
-<div class="bn-rail">
+<!-- Floating toggle (only shown on small screens via CSS) -->
+<button
+  class="bn-fab"
+  aria-label={panelOpen ? "Hide controls" : "Show controls"}
+  aria-expanded={panelOpen}
+  onclick={() => (panelOpen = !panelOpen)}
+>
+  {panelOpen ? "✕" : "☰"}
+</button>
+
+<!-- Tap-to-close backdrop (mobile only) -->
+<div
+  class="bn-backdrop"
+  class:show={panelOpen}
+  aria-hidden="true"
+  onclick={() => (panelOpen = false)}
+></div>
+
+<div class="bn-rail" class:open={panelOpen}>
   <header class="bn-rail__head">
     <h1 class="bn-rail__title">Blue<span>·</span>Noise</h1>
     <p class="bn-rail__sub">Stippling Studio</p>
@@ -107,12 +135,18 @@
         label="Run"
         tip="Add another batch of points (Points / Step) and redraw."
         variant="accent"
-        onclick={() => host.actionRun()}
+        onclick={() => {
+          host.actionRun();
+          closeOnMobile();
+        }}
       />
       <Button
         label="Relax"
         tip="Run one blue-noise relaxation pass to even out point spacing."
-        onclick={() => host.actionRelax()}
+        onclick={() => {
+          host.actionRelax();
+          closeOnMobile();
+        }}
       />
       <Button
         label={loopRunning ? "Stop Loop" : "Start Loop"}
