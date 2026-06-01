@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Blue Noise 6</title>
+    <style>
+      #propdiv {
+        position: absolute;
+        left: 70%;
+        overflow-y: scroll;
+        height: 80%;
+      }
+
+      #input {
+        visibility: hidden;
+      }
+
+      #input2 {
+        visibility: hidden;
+      }
+    </style>
+    <script type="module">
+      import * as appstate from "./bundle.js";
+      window.startapp = function () {
+        appstate.start();
+      };
+      window.addEventListener("load", () => window.startapp());
+    </script>
+  </head>
+
+  <body>
+    <div id="propdiv">
+      <p>
+        <input type="file" id="input" />
+        <input type="file" id="input2" />
+      </p>
+
+      <ul id="form"></ul>
+    </div>
+    <canvas id="canvas"> </canvas>
+  </body>
+</html>
