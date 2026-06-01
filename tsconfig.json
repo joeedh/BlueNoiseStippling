@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "types": [],
+    "strict": true,
+    "strictNullChecks": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": false,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "useDefineForClassFields": false,
+  },
+  "include": ["scripts/**/*.ts", "scripts/**/*.d.ts", "*.d.ts"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "scripts/dat.gui.js",
+    "scripts/require.js",
+    "scripts/relax_worker.js",
+    "e2e",
+  ],
+}

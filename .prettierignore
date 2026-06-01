@@ -1,0 +1,11 @@
+dist
+node_modules
+pnpm-lock.yaml
+bluenoise6.html
+serv.js
+smoothmask_file.js
+scripts/dat.gui.js
+scripts/require.js
+scripts/mask_file.js
+scripts/smoothmask_file.js
+scripts/flowersData.js
