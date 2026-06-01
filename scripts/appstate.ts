@@ -5,7 +5,9 @@ import cconst, { config, APP_VERSION, RASTER_MODES } from "./const.js";
 import * as bluenoise from "./bluenoise.js";
 import * as draw from "./draw.js";
 import * as colors from "./colors.js";
-import * as ui from "./ui.js";
+import { mount } from "svelte";
+import App from "./svelte/App.svelte";
+import { Curve } from "./curve.js";
 import * as spectrum from "./spectrum.js";
 import * as indexdb_store from "./indexdb_store.js";
 import smoothmask_file from "./smoothmask_file.js";
@@ -65,8 +67,9 @@ export class AppState {
   hqrender: render.CircleRender | undefined;
   cur_raster_i!: number;
 
-  gui!: ui.UI;
-  gui2!: ui.UI;
+  // The three editable curves, created in makeGUI and assigned into config so
+  // the solver can read them. Kept here so action methods can reach them too.
+  curves!: Record<string, Curve>;
 
   relaxtimer: number | undefined;
   tick_timer: number | undefined;
@@ -465,8 +468,13 @@ export class AppState {
     delete localStorage.startup_image_bn4;
     delete localStorage.startup_file_bn6;
 
-    this.gui.clearData();
-    this.gui2.clearData();
+    // also drop persisted curve state and panel open/closed flags
+    for (const id of ["SPH_CURVE", "TONE_CURVE", "DENSITY_CURVE"]) {
+      delete localStorage[id];
+    }
+    for (const k of Object.keys(localStorage)) {
+      if (k.startsWith("bn6_panel_")) delete localStorage[k];
+    }
 
     console.log("Cleared saved data");
   }
@@ -517,465 +525,171 @@ export class AppState {
       this.#last_size_key = key;
       this.draw();
     }
-
-    this.gui.on_tick();
-    this.gui2.on_tick();
   }
 
   makeGUI() {
-    //these bind functions bind constants from const.js.
-    //they typically take the constant name (converted to lowercase)
-    //as their first argument
-    // The GUI binds its controls to whatever "state" object it is given; point
-    // it at the config singleton so every slider/checkbox reads & writes config.
-    // UI treats its state object as a dynamic string-keyed bag; the Config interface
-    // has no index signature, so present it as one for the constructor.
-    const stateObj = config as unknown as Record<string, unknown>;
-    let gui2 = (this.gui2 = new ui.UI(
-      "ui2_bn6",
-      stateObj,
-      undefined,
-      undefined,
-      undefined,
-    ));
-    let gui = (this.gui = new ui.UI(
-      "ui1_bn6",
-      stateObj,
-      undefined,
-      undefined,
-      undefined,
-    ));
-
-    window.gui = gui;
-
-    let cpanel = gui.panel("Actions");
-
-    cpanel.button("step", "Run", function () {
-      window._appstate.bluenoise.step();
-      window.redraw_all();
-    });
-
-    cpanel.button("load_image", "Load Image", function () {
-      let input = document.getElementById("input");
-      input!.click();
-    });
-
-    cpanel.button("load_mask", "Load Mask", function () {
-      let input = document.getElementById("input2");
-      input!.click();
-    });
-
-    cpanel.button("reset", "Reset", function () {
-      colors.gen_colors();
-      window._appstate.init();
-      window._appstate.reset();
-
-      window.redraw_all();
-    });
-
-    cpanel.button("clear", "Clear Saved Data", () => {
-      this.clearData();
-    });
-
-    let rpanel = gui.panel("Relaxation");
-
-    let sphc = rpanel.panel("Custom SPH Curve");
-
-    config.SPH_CURVE = sphc.curve("SPH_CURVE", "Custom SPH Curve").curve;
-    sphc.check("USE_SPH_CURVE", "Use SPH Curve");
-    sphc.close();
-
-    rpanel.button("relax", "Relax", () => {
-      window._appstate.bluenoise.relax();
-      window.redraw_all();
-    });
-
-    let relaxbut = rpanel.button("relax_loop", "Start Loop", () => {
-      if (window._appstate.relaxtimer !== undefined) {
-        (relaxbut.domElement as HTMLElement).parentNode!.children[0].innerHTML =
-          "Start Loop";
-        console.log("stopping timer");
-
-        window.clearInterval(window._appstate.relaxtimer);
-        window._appstate.relaxtimer = undefined;
-
-        return;
-      }
-
-      (relaxbut.domElement as HTMLElement).parentNode!.children[0].innerHTML =
-        "Stop Loop";
-
-      window._appstate.relaxtimer = window.setInterval(() => {
-        window._appstate.bluenoise.relax();
-        window.redraw_all();
-      }, 100);
-    });
-
-    window.relaxbut = relaxbut;
-
-    rpanel.check("ANISOTROPY", "Anisotropic");
-    rpanel.slider(
-      "FILTERWID",
-      "Filter Wid",
-      3.0,
-      0.001,
-      7.0,
-      0.001,
-      false,
-      false,
-    );
-    rpanel.slider(
-      "ANISOTROPY_FILTERWID",
-      "AnisotropicFilterWid",
-      3.0,
-      0.001,
-      7.0,
-      0.001,
-      false,
-      false,
-    );
-    rpanel.slider(
-      "RELAX_SPEED",
-      "Relax Speed",
-      1.0,
-      0.001,
-      8.0,
-      0.001,
-      true,
-      false,
-    );
-    rpanel.check("RELAX_UPDATE_VECTORS", "Update Vectors");
-
-    let spanel = gui.panel("Settings");
-    let panel = gui;
-
-    spanel.slider("DIMEN", "Density", 32, 1, 2048, 1, true, false);
-    spanel.slider("STEPS", "Points Per Step", 32, 1, 50000, 1, true, false);
-    spanel.slider("DRAW_RMUL", "Point Size", 1.0, 0.1, 8.0, 0.01, false, true);
-    spanel.slider(
-      "RAND_FAC",
-      "Added Random",
-      0.0,
-      0.0,
-      3.0,
-      0.005,
-      false,
-      true,
-    );
-    spanel.check("HIGH_QUALITY_RASTER", "HQ Renderer");
-
-    spanel.check("SHOW_KDTREE", "Show kdtree");
-    spanel.check("SCALE_POINTS", "Radius Scale");
-    spanel.check("TRI_MODE", "Triangle Mode");
-
-    let apanel = panel.panel("Stick Mode");
-    apanel.check("DRAW_STICKS", "Draw Sticks");
-    apanel.check("FANCY_STICKS", "Fancy Strokes");
-    apanel.check("STICK_ARROWS", "Use Arrows");
-    apanel.slider("STICK_ROT", "StickRot", 0.0, -180, 180, 0.0001, false, true);
-    apanel.slider(
-      "STICK_WIDTH",
-      "StickWidth",
-      0.0,
-      0.0001,
-      12.0,
-      0.0001,
-      false,
-      true,
-    );
-    apanel.slider(
-      "STICK_LENGTH",
-      "StickLength",
-      0.0,
-      0.0001,
-      12.0,
-      0.0001,
-      false,
-      true,
-    );
-    apanel.slider("ANIS_W1", "W1", 0.0, -2.0, 2.0, 0.0001, false, false);
-    apanel.slider("ANIS_W2", "W2", 0.0, -2.0, 2.0, 0.0001, false, false);
-    apanel.close();
-
-    let dpanel = panel.panel("Dithering");
-    dpanel.check("DITHER_COLORS", "Dither Colors");
-    dpanel.slider(
-      "DITHER_RAND_FAC",
-      "Dither Random",
-      0.0,
-      0.0,
-      9.0,
-      0.005,
-      false,
-      false,
-    );
-    dpanel.check("DITHER_BLUE", "Blue Noise");
-    dpanel.slider(
-      "DITHER_BLUE_STEPS",
-      "Dither Uniformity",
-      6.0,
-      0.0,
-      256.0,
-      0.005,
-      true,
-      false,
-    );
-
-    let fpanel = panel.panel("Image Filtering");
-    fpanel.check("HIST_EQUALIZE", "EqualizeHistogram");
-    fpanel.check("DEBAND_IMAGE", "Blur Derivatives");
-    fpanel.slider("DEBAND_RADIUS", "Blur Radius", 15, 1, 90, 1, true, false);
-    fpanel.slider(
-      "DEBAND_BLEND",
-      "BlendWithOriginal",
-      0.0,
-      0,
-      1,
-      0.0001,
-      false,
-      false,
-    );
-
-    fpanel.check("SHARPEN", "Sharpen");
-    fpanel.slider("SHARPNESS", "Sharpness", 0.5, 0.0, 3.5, 0.001, false, false);
-    fpanel.check("SHARPEN_LUMINENCE", "Luminence Only");
-    //fpanel.check('USE_LAB', 'Use Lab Space');
-
-    fpanel.listenum(
-      "COLOR_SPACE",
-      "Space",
-      colors.ColorSpaces,
-      config.COLOR_SPACE,
-    );
-
-    fpanel.close();
-
-    let panel2 = gui.panel("Save Tool");
-    panel2.button("save_img", "Save Image", () => {
-      window._appstate.renderImage().then((canvas: HTMLCanvasElement) => {
-        canvas.toBlob((blob: Blob | null) => {
-          let url = URL.createObjectURL(blob!);
-
-          window.open(url);
-        });
+    // Create the three editable curves and assign them into config so the
+    // solver (which reads config.SPH_CURVE.evaluate, etc.) sees them. Each
+    // curve persists itself to its own localStorage key, matching the original
+    // CurveWidget behavior. The dat.gui panels are gone, replaced by the Svelte
+    // control rail mounted below.
+    const setupCurve = (id: string): Curve => {
+      const c = new Curve(id);
+      c.setSaveHook(() => {
+        try {
+          localStorage[id] = JSON.stringify(c);
+        } catch (e) {
+          /* storage full / unavailable */
+        }
+        this.save();
       });
-    });
-
-    panel2.slider(
-      "RENDERED_IMAGE_SIZE",
-      "Rendered Image Size",
-      1024,
-      1,
-      4096,
-      1,
-      true,
-      false,
-    );
-
-    panel2 = gui.panel("Canvas Position");
-    panel2.slider("SCALE", "Scale", 1.0, 0.05, 5.0, 0.01, false, true);
-    panel2.slider("PANX", "Pan X", 0.0, -1.5, 1.5, 0.01, false, true);
-    panel2.slider("PANY", "Pan Y", 0.0, -1.5, 1.5, 0.01, false, true);
-
-    let panel3 = gui.panel("Export SVG");
-    panel3.button("save_svg", "Save SVG", () => {
-      console.log("Export SVG!");
-
-      let data = exportsvg.exportSVG(this);
-
-      let a = document.createElement("a");
-
-      //data = "data:image/svg;charset=US-ASCII," + encodeURI(data);
-      //a.setAttribute("href", data);
-
-      let blob = new Blob([data], { type: "image/svg" });
-      let url = URL.createObjectURL(blob);
-
-      a.setAttribute("download", "render.svg");
-      a.setAttribute("href", url);
-
-      a.click();
-    });
-
-    panel = gui2.panel("More Options");
-    panel2 = panel.panel("General");
-
-    panel3 = panel2.panel("Tone Curve");
-    // DefaultCurves stores serialized curve presets; curve() consumes them as its
-    // (non-exported) CurveJSON shape, so route through the method's parameter type.
-    config.TONE_CURVE = panel3.curve(
-      "TONE_CURVE",
-      "Tone Curve",
-      cconst.DefaultCurves.TONE_CURVE as unknown as Parameters<
-        typeof panel3.curve
-      >[2],
-    ).curve;
-    panel3.close();
-
-    panel3 = panel2.panel("Density Curve");
-    config.DENSITY_CURVE = panel3.curve(
-      "DENSITY_CURVE",
-      "Density Curve",
-      cconst.DefaultCurves.DENSITY_CURVE as unknown as Parameters<
-        typeof panel3.curve
-      >[2],
-    ).curve;
-    panel3.close();
-
-    panel2.check("SHOW_IMAGE", "Show Image");
-    panel2.check("SHOW_DVIMAGE", "Show DvImage");
-    panel2.check("SHOW_RAW_IMAGE", "Raw Image");
-
-    panel2.check("SHOW_COLORS", "Show Colors");
-    panel2.check("ADAPTIVE_COLOR_DENSITY", "Denser For Color");
-    panel2.check("HEXAGON_MODE", "Hexagonish");
-    panel2.check("GRID_MODE", "Grid Like");
-
-    panel3 = panel2.panel("Simple Raster");
-    panel3.check("RASTER_IMAGE", "Enable");
-
-    let rastermode = "";
-    for (let k in RASTER_MODES) {
-      if (RASTER_MODES[k as keyof typeof RASTER_MODES] === config.RASTER_MODE) {
-        rastermode = k;
-        break;
-      }
-    }
-
-    console.log("SDFSDFSDF", rastermode);
-
-    panel3.listenum("RASTER_MODE", "Mode", RASTER_MODES, rastermode);
-    panel3.check("USE_CMYK_MASK", "CMYK Masksheet");
-
-    panel2.check("MAKE_NOISE", "Make Noise (to test relax)");
-    panel2.check("SMALL_MASK", "Small Mask Mode");
-    panel2.check("XLARGE_MASK", "Extra Large Mask Mode");
-    panel2.check("SPECIAL_OFFSETS", "Use Encoded Offsets");
-
-    panel2.check("USE_MERSENNE", "Psuedo Random");
-    panel2.check("BLACK_BG", "Black BG");
-
-    panel2 = panel.panel("Palette");
-    panel2.slider(
-      "PAL_COLORS",
-      "Number of Colors (Times 9)",
-      4,
-      1,
-      32,
-      1,
-      true,
-      false,
-    );
-    panel2.check("ALLOW_PURPLE", "Include Purple In Palette");
-    panel2.check("ALLOW_GREY", "Include Grey In Palette");
-    panel2.check("SIMPLE_PALETTE", "Simple Palette");
-    panel2.check("IMAGE_PALETTE", "PaletteFromImage");
-    panel2.check("BG_PALETTE", "Black/white only");
-
-    let load_value = "built-in-smooth";
-
-    panel2 = panel.panel("Blue Noise Mask");
-    panel2.listenum(
-      undefined,
-      "Mask",
-      {
-        "Built In Smooth": "built-in-smooth",
-        "Built In": "built-in",
-        "Large 2": "mask_large_2.png",
-        "Large 2 (smoothed)": "mask_large_2_smoothed.png",
-        "Large 1 (only 16 levels)": "mask_large.png",
-        "Small 1 (only 16 levels)": "mask.png",
-        "Weighted Sample Removal": "weighted_sample_removal_mask_1.png",
-      },
-      "built-in-smooth",
-      function (value: string | number) {
-        load_value = value as string;
-      },
-    );
-
-    panel2.button("load_mask", "Load", function () {
-      let value = load_value;
-
-      if (value === "built-in-smooth") {
-        console.log("Reloading built-in blue noise mask. . .");
-
-        //localStorage.startup_mask_bn4 = blue_mask_file;
-        new indexdb_store.IndexDBStore("bluenoise_mask").write(
-          "data",
-          smoothmask_file,
-        );
-
-        window._appstate.bluenoise.load_mask(smoothmask_file);
-      } else if (value === "built-in") {
-        console.log("Reloading built-in blue noise mask. . .");
-        //localStorage.startup_mask_bn4 = blue_mask_file;
-        new indexdb_store.IndexDBStore("bluenoise_mask").write(
-          "data",
-          blue_mask_file,
-        );
-
-        window._appstate.bluenoise.load_mask(blue_mask_file);
-      } else {
-        let path = "examples/" + value;
-        let base = document.location.pathname;
-
-        while (base.length > 0 && !base.endsWith("/")) {
-          base = base.slice(0, base.length - 1);
+      if (id in localStorage) {
+        try {
+          c.loadJSON(JSON.parse(localStorage[id]));
+        } catch (e) {
+          console.warn("Failed to load saved curve", id, e);
         }
-
-        if (base.length !== 0) {
-          base = base.slice(1, base.length);
-        }
-
-        path = base + path;
-        let promise = util.fetch_file(path, true);
-
-        promise.then(function (rawData) {
-          //turn into data url
-          // fetch_file(path, true) resolves with an ArrayBuffer.
-          const buf = rawData as ArrayBuffer;
-          console.log("DATA LEN1", buf.byteLength);
-          const bytes = new Uint8Array(buf);
-
-          let s = "";
-          for (let i = 0; i < bytes.length; i++) {
-            s += String.fromCharCode(bytes[i]);
-          }
-
-          let data = btoa(s);
-          console.log(data.slice(0, 100));
-
-          if (!data.startsWith("SMOOTHMASK"))
-            data = "data:image/png;base64," + data;
-
-          //localStorage.startup_mask_bn4 = data;
-          new indexdb_store.IndexDBStore("bluenoise_mask").write("data", data);
-          window._appstate.bluenoise.load_mask(data);
-        });
       }
-    });
+      c.update();
+      return c;
+    };
 
-    panel2 = panel.panel("Misc");
-    panel2.check("DRAW_TRANSPARENT", "Accumulation Mode");
-    panel2.slider(
-      "ACCUM_ALPHA",
-      "Accum Alpha",
-      1.0,
-      0.001,
-      1.0,
-      0.001,
-      false,
-      true,
-    );
-    panel2.check("CORRECT_FOR_SPACING", "Correct_For_Spacing");
-    panel2.check("LOW_RES_CUBE", "Low Res Cube");
+    const curves: Record<string, Curve> = {
+      SPH_CURVE: setupCurve("SPH_CURVE"),
+      TONE_CURVE: setupCurve("TONE_CURVE"),
+      DENSITY_CURVE: setupCurve("DENSITY_CURVE"),
+    };
+    this.curves = curves;
 
-    //.slider will have loaded store setting from localStorage,
-    //if it exists
+    config.SPH_CURVE = curves.SPH_CURVE;
+    config.TONE_CURVE = curves.TONE_CURVE;
+    config.DENSITY_CURVE = curves.DENSITY_CURVE;
+
     colors.gen_colors();
 
-    gui.load();
-    gui2.load();
+    const root = document.getElementById("ui-root")!;
+    mount(App, {
+      target: root,
+      props: {
+        host: this,
+        curves,
+      },
+    });
+  }
+
+  // ---- actions invoked by the Svelte control rail ----
+  actionRun() {
+    this.bluenoise.step();
+    window.redraw_all();
+  }
+
+  actionRelax() {
+    this.bluenoise.relax();
+    window.redraw_all();
+  }
+
+  actionReset() {
+    colors.gen_colors();
+    this.init();
+    this.reset();
+    window.redraw_all();
+  }
+
+  actionClearData() {
+    this.clearData();
+  }
+
+  actionSaveImage() {
+    this.renderImage().then((canvas: HTMLCanvasElement) => {
+      canvas.toBlob((blob: Blob | null) => {
+        if (!blob) return;
+        window.open(URL.createObjectURL(blob));
+      });
+    });
+  }
+
+  actionSaveSVG() {
+    const data = exportsvg.exportSVG(this);
+    const a = document.createElement("a");
+    const blob = new Blob([data], { type: "image/svg" });
+    const url = URL.createObjectURL(blob);
+
+    a.setAttribute("download", "render.svg");
+    a.setAttribute("href", url);
+    a.click();
+  }
+
+  loadImageDialog() {
+    document.getElementById("input")!.click();
+  }
+
+  loadMaskDialog() {
+    document.getElementById("input2")!.click();
+  }
+
+  startRelaxLoop() {
+    if (this.relaxtimer !== undefined) return;
+
+    this.relaxtimer = window.setInterval(() => {
+      this.bluenoise.relax();
+      window.redraw_all();
+    }, 100);
+  }
+
+  stopRelaxLoop() {
+    if (this.relaxtimer !== undefined) {
+      window.clearInterval(this.relaxtimer);
+      this.relaxtimer = undefined;
+    }
+  }
+
+  // Loads one of the bundled blue-noise masks (ported from the old dat.gui
+  // "Blue Noise Mask" panel's Load button).
+  loadMaskByName(value: string) {
+    if (value === "built-in-smooth") {
+      new indexdb_store.IndexDBStore("bluenoise_mask").write(
+        "data",
+        smoothmask_file,
+      );
+      this.bluenoise.load_mask(smoothmask_file);
+    } else if (value === "built-in") {
+      new indexdb_store.IndexDBStore("bluenoise_mask").write(
+        "data",
+        blue_mask_file,
+      );
+      this.bluenoise.load_mask(blue_mask_file);
+    } else {
+      let path = "examples/" + value;
+      let base = document.location.pathname;
+
+      while (base.length > 0 && !base.endsWith("/")) {
+        base = base.slice(0, base.length - 1);
+      }
+
+      if (base.length !== 0) {
+        base = base.slice(1, base.length);
+      }
+
+      path = base + path;
+
+      util.fetch_file(path, true).then((rawData) => {
+        const buf = rawData as ArrayBuffer;
+        const bytes = new Uint8Array(buf);
+
+        let s = "";
+        for (let i = 0; i < bytes.length; i++) {
+          s += String.fromCharCode(bytes[i]);
+        }
+
+        let data = btoa(s);
+        if (!data.startsWith("SMOOTHMASK")) {
+          data = "data:image/png;base64," + data;
+        }
+
+        new indexdb_store.IndexDBStore("bluenoise_mask").write("data", data);
+        this.bluenoise.load_mask(data);
+      });
+    }
   }
 }
 

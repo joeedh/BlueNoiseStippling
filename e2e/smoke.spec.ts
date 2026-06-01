@@ -17,9 +17,8 @@ test("app boots, mounts GUI, stipples a driven image", async ({ page }) => {
   await page.goto("/index.html");
 
   await expect(page.locator("#canvas")).toBeVisible();
-  // dat.gui control panels mounted (the .dg.main roots; the bare .dg.ac
-  // auto-place wrapper is intentionally hidden).
-  await expect(page.locator(".dg.main").first()).toBeVisible();
+  // The Svelte control rail mounted into #ui-root.
+  await expect(page.locator(".bn-rail")).toBeVisible();
 
   // Feed a deterministic gradient image through the real pipeline.
   await page.evaluate(async () => {

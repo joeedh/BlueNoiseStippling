@@ -1,0 +1,181 @@
+/*
+  Blue Noise Stippling — "instrument panel" theme.
+  Dark charcoal surfaces, hairline rules, monospace numerics, a single cool
+  accent. Fonts are a progressive-enhancement @import (degrades to a sturdy
+  system stack offline, so e2e/no-network runs still look intentional).
+*/
+@import url("https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap");
+
+:root {
+  --bg: #0c0e12;
+  --surface: #14171d;
+  --surface-2: #1a1e26;
+  --surface-3: #20252e;
+  --line: #2a3038;
+  --line-soft: #21262e;
+  --text: #ccd4df;
+  --text-dim: #7c8794;
+  --text-faint: #525c68;
+  --accent: #54e0c7;
+  --accent-dim: #2f7d72;
+  --accent-glow: rgba(84, 224, 199, 0.18);
+  --danger: #e8736a;
+  --warn: #e8b15a;
+
+  --font-ui: "Barlow Semi Condensed", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Spline Sans Mono", ui-monospace, "Cascadia Mono", "Consolas",
+    "SF Mono", Menlo, monospace;
+
+  --rail-w: 332px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.bn-rail {
+  width: var(--rail-w);
+  height: 100%;
+  background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
+  border-left: 1px solid var(--line);
+  box-shadow: -18px 0 48px rgba(0, 0, 0, 0.45);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+}
+
+.bn-rail__head {
+  flex: 0 0 auto;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.bn-rail__title {
+  margin: 0;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.bn-rail__title span {
+  color: var(--accent);
+}
+
+.bn-rail__sub {
+  margin: 2px 0 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+
+.bn-rail__body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 8px 0 40px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+.bn-rail__body::-webkit-scrollbar {
+  width: 9px;
+}
+.bn-rail__body::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 6px;
+  border: 2px solid var(--bg);
+}
+
+/* --- generic control row --- */
+.bn-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 16px;
+}
+
+.bn-row__label {
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
+  color: var(--text-dim);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: help;
+}
+
+.bn-row__label:hover {
+  color: var(--text);
+}
+
+.bn-info {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  color: var(--text-faint);
+  font-size: 9px;
+  line-height: 11px;
+  text-align: center;
+  font-family: var(--font-mono);
+  flex: 0 0 auto;
+}
+
+.bn-num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent);
+  min-width: 52px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- tooltip --- */
+.bn-tooltip {
+  position: fixed;
+  z-index: 9999;
+  max-width: 260px;
+  padding: 8px 11px;
+  background: #05070a;
+  border: 1px solid var(--accent-dim);
+  border-radius: 6px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 0, 0, 0.4);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  line-height: 1.45;
+  letter-spacing: 0.01em;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(3px);
+  transition:
+    opacity 0.12s ease,
+    transform 0.12s ease;
+}
+
+.bn-tooltip[data-show="1"] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.bn-tooltip::before {
+  content: "";
+  position: absolute;
+  right: -5px;
+  top: var(--arrow-y, 50%);
+  width: 8px;
+  height: 8px;
+  background: #05070a;
+  border-right: 1px solid var(--accent-dim);
+  border-bottom: 1px solid var(--accent-dim);
+  transform: translateY(-50%) rotate(-45deg);
+}

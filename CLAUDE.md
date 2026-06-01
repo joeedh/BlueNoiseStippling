@@ -11,7 +11,9 @@ and SVG export. The whole app runs client-side (Canvas 2D); there is no backend.
 
 Originally plain ES6-module JavaScript with no build step; now a TypeScript
 project bundled with esbuild, type-checked with tsgo, tested with vitest +
-Playwright.
+Playwright. The control UI is a **Svelte 5** app (compiled by the
+`esbuild-svelte` plugin) mounted into `#ui-root`; the legacy dat.gui UI has been
+removed.
 
 ## Commands (pnpm)
 
@@ -25,9 +27,9 @@ Playwright.
 | `pnpm test`      | vitest unit tests (`tests/**/*.test.ts`, jsdom).                                                                                                                |
 | `pnpm test:e2e`  | Playwright e2e (`e2e/`) — boots the app via the dev server (port 5733), drives a real image through the pipeline, asserts non-blank render + no console errors. |
 
-Entry point: `index.html` loads the bundled `appstate.ts`, which calls
-`appstate.start()` on window load. (`bluenoise6.html` is the original, pre-build
-entry — kept for reference, not used by the build.)
+Entry point: `index.html` loads the bundled `appstate.ts` (plus the generated
+`bundle.css`), which calls `appstate.start()` on window load. (`bluenoise6.html`
+is the original, pre-build entry — kept for reference, not used by the build.)
 
 ## Architecture (scripts/)
 
@@ -53,8 +55,9 @@ entry — kept for reference, not used by the build.)
 
 **UI & app**
 
-- `ui.ts` — the dat.gui-based control panels and the curve-widget hierarchy (`CurveTypeData` → `BSplineCurve`/`CustomCurve`/`GuassianCurve`, `Curve`, `UI`).
-- `appstate.ts` — the `AppState` class, the `start()` entry point, image loading (FileReader / IndexedDB), and the main `requestAnimationFrame` redraw loop.
+- `curve.ts` — the **pure** curve math engine (`CurveTypeData` → `BSplineCurve`/`CustomCurve`/`GuassianCurve`, `Curve`, `CurvePoint`). DOM-free and GUI-free: evaluation math + JSON only. The solver reads curves through `Curve.evaluate(t)`; rendering/interaction live in the Svelte editor.
+- `svelte/` — the Svelte 5 control rail. `App.svelte` (layout + the `SCHEMA`-driven panels), control primitives (`Slider`/`Toggle`/`Select`/`Button`/`Panel`), `CurveEditor.svelte` (canvas-based b-spline editor driving `curve.ts`), `PresetBar.svelte` + `presets.ts` (named presets in `localStorage`, JSON import/export), `schema.ts` (the single source of control metadata + tooltip copy), `config-store.ts` (rune-free helpers bridging the reactive mirror to the `config` singleton), `tooltip.ts` (shared tooltip action), `theme.css` (the dark instrument-panel theme).
+- `appstate.ts` — the `AppState` class, the `start()` entry point, `makeGUI()` (creates the three curves, assigns them into `config`, then `mount()`s the Svelte `App`), the toolbar `action*` methods the UI calls, image loading (FileReader / IndexedDB), and the main `requestAnimationFrame` redraw loop.
 
 **Config & utilities**
 
@@ -76,8 +79,9 @@ onto `window.*` globals. The port **replaced those globals with module imports**
 - **Mutable runtime settings** live on a single exported singleton:
   `import { config } from './const.js'` → read/write `config.DIMEN`, `config.SCALE`,
   `config.RASTER_MODE`, etc. `config` is a live object shared by reference
-  everywhere; the dat.gui panels bind directly to it (the GUI's "state" object is
-  `config`, set in `appstate.ts`'s `makeGUI`). Never freeze `config`.
+  everywhere; the Svelte UI keeps a reactive `$state` mirror but writes every
+  change straight through to this singleton (so the solver sees it) via the
+  helpers in `scripts/svelte/config-store.ts`. Never freeze `config`.
 - `cconst` (the default export of `const.ts`) holds helper functions and
   `defaultConfig`; `cconst.toJSON()`/`loadJSON()` serialize `config`.
 - ⚠️ Don't confuse `config.RASTER_MODE` (a mutable number) with the `RASTER_MODES`
@@ -108,10 +112,11 @@ when touching `bluenoise.ts`/`draw.ts`/`smoothmask.ts`.
 
 ## Vendored / dead files (not ported, excluded from the build)
 
-`scripts/dat.gui.js` (vendored GUI lib), `scripts/require.js` (unused AMD loader),
-`scripts/relax_worker.js` (a worker that is never instantiated), `scripts/typesystem.js`
-(empty). The big inline-data modules `mask_file.ts`, `smoothmask_file.ts`,
-`flowersData.ts` are just string-blob exports.
+`scripts/require.js` (unused AMD loader), `scripts/relax_worker.js` (a worker
+that is never instantiated), `scripts/typesystem.js` (empty). The big inline-data
+modules `mask_file.ts`, `smoothmask_file.ts`, `flowersData.ts` are just
+string-blob exports. (The vendored `dat.gui.js`/`dat.gui.d.ts` were removed when
+the UI was ported to Svelte.)
 
 ## Gotchas
 

@@ -20,14 +20,19 @@
     "@playwright/test": "^1.60.0",
     "@typescript/native-preview": "7.0.0-dev.20260527.2",
     "esbuild": "^0.28.0",
+    "esbuild-svelte": "^0.9.5",
     "eslint": "^9.39.0",
     "globals": "^16.0.0",
     "jsdom": "^25.0.0",
+    "svelte": "^5.56.0",
+    "svelte-preprocess": "^6.0.5",
     "typescript": "^5.9.0",
     "typescript-eslint": "^8.60.0",
     "vitest": "^4.1.7"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild"]
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }
