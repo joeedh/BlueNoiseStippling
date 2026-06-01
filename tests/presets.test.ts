@@ -72,8 +72,9 @@ describe("capturePreset (Save As / Export)", () => {
     config.DENSITY_CURVE = new Curve("DENSITY_CURVE");
 
     // edit TONE_CURVE's active (bspline) generator
-    const bs = (config.TONE_CURVE as unknown as { generators: { active: unknown } })
-      .generators.active as {
+    const bs = (
+      config.TONE_CURVE as unknown as { generators: { active: unknown } }
+    ).generators.active as {
       reset: () => void;
       add: (x: number, y: number) => unknown;
       update: () => void;
