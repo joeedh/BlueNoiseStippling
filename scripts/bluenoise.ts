@@ -27,6 +27,15 @@ import * as smoothmask from "./smoothmask.js";
 import * as indexdb_store from "./indexdb_store.js";
 import smoothmask_file from "./smoothmask_file.js";
 import * as sampler from "./sampler.js";
+import {
+  InnerLoopArg,
+  type PointArray,
+  type Vec,
+  type RasterImage,
+  type MaskImage,
+  type SamplerFn,
+} from "./bluenoise-core/internal.js";
+import { writeDot } from "./bluenoise-core/raster.js";
 
 // `_appstate` and `redraw_all` are bare globals installed on window at runtime
 // (see appstate.ts). The app reads them as bare identifiers. `_appstate` is the
@@ -35,85 +44,6 @@ import * as sampler from "./sampler.js";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const _appstate: any;
 declare const redraw_all: () => void;
-
-// A point's data lives in a flat array indexed by `i*PTOT + Pxxx`.
-type PointArray = number[];
-// Color/sample tuples returned by the sampler and color routines.
-type Vec = number[];
-
-// The image sampler. The underlying `sampler.sampler` has implicit-any params and
-// no optional markers; callers here pass 4-6 args, so we describe the trailing two
-// as optional. Returns an [r,g,b,a] tuple (r<0 signals "discard this sample").
-type SamplerFn = (
-  x: number,
-  y: number,
-  size: number,
-  rad: number,
-  no_filter?: boolean,
-  use_debanded?: boolean,
-) => number[];
-
-// The render target: an ImageData-like object whose `data` is the raw RGBA byte
-// array written by the rasterizer.
-interface RasterImage {
-  width: number;
-  height: number;
-  data?: Uint8ClampedArray;
-}
-
-// Loaded mask image: an <img> element with decoded pixel data attached.
-type MaskImage = HTMLImageElement & {
-  data?: ImageData;
-};
-
-let rot_rets = new util.cachering<number[]>(function () {
-  return [0, 0];
-}, 256);
-
-function rot(x: number, y: number, th: number): number[] {
-  let ret = rot_rets.next();
-
-  let sinth = Math.sin(th);
-  let costh = Math.cos(th);
-
-  ret[0] = costh * x - sinth * y;
-  ret[1] = costh * y + sinth * x;
-
-  return ret;
-}
-
-window.rot = rot;
-
-class InnerLoopArg {
-  x: number;
-  y: number;
-  offx: number;
-  offy: number;
-  ix: number;
-  iy: number;
-
-  constructor() {
-    this.x = this.y = this.offx = this.offy = this.ix = this.iy = 0.0;
-  }
-
-  load(
-    x: number,
-    y: number,
-    ix: number,
-    iy: number,
-    offx: number,
-    offy: number,
-  ): this {
-    this.x = x;
-    this.y = y;
-    this.ix = ix;
-    this.iy = iy;
-    this.offx = offx;
-    this.offy = offy;
-
-    return this;
-  }
-}
 
 export class BlueNoise {
   points: PointArray;
@@ -804,117 +734,6 @@ export class BlueNoise {
 
       let ci = colors.closest_color_fast(clr);
 
-      let rasterfac =
-        raster_image !== undefined
-          ? ~~Math.ceil(raster_image.width / this.dimen)
-          : 1;
-
-      function dot2(
-        rx2: number,
-        ry2: number,
-        c: number,
-        m: number,
-        y: number,
-        k: number,
-      ): void {
-        if (raster_image === undefined || rdata === undefined) return;
-        let rx = ~~(rx2 / 2);
-        let ry = ~~(ry2 / 2);
-
-        let ax = ~~(rx2 - rx);
-        let ay = ~~(ry2 - ry);
-
-        let size = 1;
-        let offs = cconst.get_searchoff(size);
-
-        let ridx = (ry * raster_image.width + rx) * 4;
-        let fac = 1.0;
-
-        ridx += ax % 3;
-
-        rdata[ridx] = 0;
-        //rdata[ridx+1] = Math.max(rdata[ridx+1]-m*fac, 0);
-        //rdata[ridx+2] = Math.max(rdata[ridx+2]-y*fac, 0);
-        //rdata[ridx+3] = 255;
-      }
-
-      function dot(
-        rx: number,
-        ry: number,
-        spotk: number,
-        c: number,
-        m: number,
-        y: number,
-        k: number,
-      ): void {
-        let f1 = 1.0 - spotk;
-        if (c === m && c === y) f1 = spotk;
-
-        f1 *= 0.5;
-
-        dot_intern(rx, ry, spotk, c, m, y, k, 0.85);
-        if (config.RASTER_MODE !== RASTER_MODES.CMYK) {
-          return;
-        }
-
-        f1 = 0.1;
-        dot_intern(rx - 1, ry, spotk, c, m, y, k, f1);
-        dot_intern(rx, ry + 1, spotk, c, m, y, k, f1);
-        dot_intern(rx + 1, ry, spotk, c, m, y, k, f1);
-        dot_intern(rx, ry - 1, spotk, c, m, y, k, f1);
-      }
-
-      function dot_intern(
-        rx: number,
-        ry: number,
-        spotk: number,
-        c: number,
-        m: number,
-        y: number,
-        k: number,
-        alpha?: number,
-      ): void {
-        if (raster_image === undefined || rdata === undefined) return;
-        alpha = alpha === undefined ? 1 : alpha;
-
-        let size = ~~(rasterfac * 0.25);
-        size = 0;
-
-        let offs = cconst.get_spotfunc(size, spotk);
-
-        if (size === 0) {
-          let ridx = (ry * raster_image.width + rx) * 4;
-
-          rdata[ridx] = Math.max(rdata[ridx] - c * alpha, 0); //*(1.0-k);
-          rdata[ridx + 1] = Math.max(rdata[ridx + 1] - m * alpha, 0);
-          rdata[ridx + 2] = Math.max(rdata[ridx + 2] - y * alpha, 0);
-          rdata[ridx + 3] = 255;
-
-          return;
-        }
-
-        for (let i = 0; i < offs.length; i++) {
-          let rx2 = rx + offs[i][0];
-          let ry2 = ry + offs[i][1];
-
-          if (
-            rx2 < 0 ||
-            ry2 < 0 ||
-            rx2 >= raster_image.width ||
-            ry2 >= raster_image.height
-          ) {
-            continue;
-          }
-
-          let ridx = (ry2 * raster_image.width + rx2) * 4;
-
-          rdata[ridx] = Math.max(rdata[ridx] - c * alpha, 0); //*(1.0-k);
-          rdata[ridx + 1] = Math.max(rdata[ridx + 1] - m * alpha, 0);
-          rdata[ridx + 2] = Math.max(rdata[ridx + 2] - y * alpha, 0);
-          rdata[ridx + 3] = 255;
-        }
-      }
-
       clr1[0] = clr[0];
       clr1[1] = clr[1];
       clr1[2] = clr[2];
@@ -1185,113 +1004,6 @@ export class BlueNoise {
         ? ~~Math.ceil(raster_image.width / this.dimen)
         : 1;
 
-    function dot2(
-      rx2: number,
-      ry2: number,
-      c: number,
-      m: number,
-      y: number,
-      k: number,
-    ): void {
-      if (raster_image === undefined || rdata === undefined) return;
-      let rx = ~~(rx2 / 2);
-      let ry = ~~(ry2 / 2);
-
-      let ax = ~~(rx2 - rx);
-      let ay = ~~(ry2 - ry);
-
-      let size = 1;
-      let offs = cconst.get_searchoff(size);
-
-      let ridx = (ry * raster_image.width + rx) * 4;
-      let fac = 1.0;
-
-      ridx += ax % 3;
-
-      rdata[ridx] = 0;
-      //rdata[ridx+1] = Math.max(rdata[ridx+1]-m*fac, 0);
-      //rdata[ridx+2] = Math.max(rdata[ridx+2]-y*fac, 0);
-      //rdata[ridx+3] = 255;
-    }
-
-    function dot(
-      rx: number,
-      ry: number,
-      spotk: number,
-      c: number,
-      m: number,
-      y: number,
-      k: number,
-    ): void {
-      let f1 = 1.0 - spotk;
-      if (c === m && c === y) f1 = spotk;
-
-      f1 *= 0.5;
-
-      dot_intern(rx, ry, spotk, c, m, y, k, 0.4);
-
-      //crude simulation of ink bleeding
-      f1 = 0.1;
-      dot_intern(rx - 1, ry, spotk, c, m, y, k, f1);
-      dot_intern(rx, ry + 1, spotk, c, m, y, k, f1);
-      dot_intern(rx + 1, ry, spotk, c, m, y, k, f1);
-      dot_intern(rx, ry - 1, spotk, c, m, y, k, f1);
-    }
-
-    function dot_intern(
-      rx: number,
-      ry: number,
-      spotk: number,
-      c: number,
-      m: number,
-      y: number,
-      k: number,
-      alpha?: number,
-    ): void {
-      if (raster_image === undefined || rdata === undefined) return;
-      alpha = alpha === undefined ? 1 : alpha;
-
-      let size = ~~(rasterfac * 0.25);
-      size = 0;
-
-      let offs = cconst.get_spotfunc(size, spotk);
-
-      if (size === 0) {
-        //rx = Math.min(Math.max(rx, 0), raster_image.width);
-        //ry = Math.min(Math.max(ry, 0), raster_image.height);
-
-        let ridx = (ry * raster_image.width + rx) * 4;
-
-        rdata[ridx] = Math.max(rdata[ridx] - c * alpha, 0); //*(1.0-k);
-        rdata[ridx + 1] = Math.max(rdata[ridx + 1] - m * alpha, 0);
-        rdata[ridx + 2] = Math.max(rdata[ridx + 2] - y * alpha, 0);
-        rdata[ridx + 3] = 255;
-
-        return;
-      }
-
-      for (let i = 0; i < offs.length; i++) {
-        let rx2 = rx + offs[i][0];
-        let ry2 = ry + offs[i][1];
-
-        if (
-          rx2 < 0 ||
-          ry2 < 0 ||
-          rx2 >= raster_image.width ||
-          ry2 >= raster_image.height
-        ) {
-          continue;
-        }
-
-        let ridx = (ry2 * raster_image.width + rx2) * 4;
-
-        rdata[ridx] = Math.max(rdata[ridx] - c * alpha, 0); //*(1.0-k);
-        rdata[ridx + 1] = Math.max(rdata[ridx + 1] - m * alpha, 0);
-        rdata[ridx + 2] = Math.max(rdata[ridx + 2] - y * alpha, 0);
-        rdata[ridx + 3] = 255;
-      }
-    }
-
     for (let si = 0; si < steps; si++, this.cur++) {
       if (this.cur >= size * size) {
         console.log("Done.");
@@ -1410,23 +1122,23 @@ export class BlueNoise {
         //continue;
         switch (color) {
           case 0:
-            dot(rx2, ry2, 1.0, 255, 0, 0, 0);
+            writeDot(this, rx2, ry2, 1.0, 255, 0, 0, 0, rasterfac);
 
             //dot(x, y, f, 255, 0, 0, 255);
             //rdata[idx] = Math.max(rdata[idx]-255, 0);
             //rdata[idx+1] = Math.max(rdata[idx+1]-100, 0);
             break;
           case 1:
-            dot(rx2, ry2, 1.0, 0, 255, 0, 0);
+            writeDot(this, rx2, ry2, 1.0, 0, 255, 0, 0, rasterfac);
             //rdata[idx+1] = Math.max(rdata[idx+1]-255, 0);
             //rdata[idx+2] = Math.max(rdata[idx+2]-100, 0);
             break;
           case 2:
-            dot(rx2, ry2, 1.0, 0, 0, 255, 0);
+            writeDot(this, rx2, ry2, 1.0, 0, 0, 255, 0, rasterfac);
             //rdata[idx+2] = Math.max(rdata[idx+2]-255, 0);
             break;
           case 3:
-            dot(rx2, ry2, 1.0, 255, 255, 255, 255);
+            writeDot(this, rx2, ry2, 1.0, 255, 255, 255, 255, rasterfac);
             //rdata[idx+0] = Math.max(rdata[idx+0]-255, 0);
             //rdata[idx+1] = Math.max(rdata[idx+1]-255, 0);
             //rdata[idx+2] = Math.max(rdata[idx+2]-255, 0);
@@ -1531,35 +1243,6 @@ export class BlueNoise {
 
     let _dr_ret = [0, 0];
     let nextout = [0, 0, 0, 0, 0];
-
-    // dorot() is dead code (only invoked from commented-out blocks below); these
-    // scratch vars were implicit globals in the original JS. Hoisted here to keep
-    // the function type-checkable without changing the (unused) behavior.
-    let ix2: number, iy2: number;
-
-    function dorot(
-      i: number,
-      j: number,
-      ix: number,
-      iy: number,
-      th: number,
-    ): number[] {
-      let rt = rot(i, j, th);
-
-      ix2 = ~~rt[0] + ix;
-      iy2 = ~~rt[1] + iy;
-
-      ix2 = ix2 % cw;
-      iy2 = iy2 % cw;
-
-      if (ix2 < 0) ix2 += cw;
-      if (iy2 < 0) iy2 += cw;
-
-      _dr_ret[0] = ix2;
-      _dr_ret[1] = iy2;
-
-      return _dr_ret;
-    }
 
     for (let si = 0; si < steps; si++, this.cur++) {
       if (this.cur >= size * size) {
@@ -1862,112 +1545,6 @@ export class BlueNoise {
           ? ~~Math.ceil(raster_image.width / this.dimen)
           : 1;
 
-      function dot2(
-        rx2: number,
-        ry2: number,
-        c: number,
-        m: number,
-        y: number,
-        k: number,
-      ): void {
-        if (raster_image === undefined || rdata === undefined) return;
-        let rx = ~~(rx2 / 2);
-        let ry = ~~(ry2 / 2);
-
-        let ax = ~~(rx2 - rx);
-        let ay = ~~(ry2 - ry);
-
-        let size = 1;
-        let offs = cconst.get_searchoff(size);
-
-        let ridx = (ry * raster_image.width + rx) * 4;
-        let fac = 1.0;
-
-        ridx += ax % 3;
-
-        rdata[ridx] = 0;
-        //rdata[ridx+1] = Math.max(rdata[ridx+1]-m*fac, 0);
-        //rdata[ridx+2] = Math.max(rdata[ridx+2]-y*fac, 0);
-        //rdata[ridx+3] = 255;
-      }
-
-      function dot(
-        rx: number,
-        ry: number,
-        spotk: number,
-        c: number,
-        m: number,
-        y: number,
-        k: number,
-      ): void {
-        let f1 = 1.0 - spotk;
-        if (c === m && c === y) f1 = spotk;
-
-        f1 *= 0.5;
-
-        dot_intern(rx, ry, spotk, c, m, y, k, 0.4);
-        if (config.RASTER_MODE !== RASTER_MODES.CMYK) {
-          return;
-        }
-
-        f1 = 0.1;
-        dot_intern(rx - 1, ry, spotk, c, m, y, k, f1);
-        dot_intern(rx, ry + 1, spotk, c, m, y, k, f1);
-        dot_intern(rx + 1, ry, spotk, c, m, y, k, f1);
-        dot_intern(rx, ry - 1, spotk, c, m, y, k, f1);
-      }
-
-      function dot_intern(
-        rx: number,
-        ry: number,
-        spotk: number,
-        c: number,
-        m: number,
-        y: number,
-        k: number,
-        alpha?: number,
-      ): void {
-        if (raster_image === undefined || rdata === undefined) return;
-        alpha = alpha === undefined ? 1 : alpha;
-
-        let size = ~~(rasterfac * 0.25);
-        size = 0;
-
-        let offs = cconst.get_spotfunc(size, spotk);
-
-        if (size === 0) {
-          let ridx = (ry * raster_image.width + rx) * 4;
-
-          rdata[ridx] = Math.max(rdata[ridx] - c * alpha, 0); //*(1.0-k);
-          rdata[ridx + 1] = Math.max(rdata[ridx + 1] - m * alpha, 0);
-          rdata[ridx + 2] = Math.max(rdata[ridx + 2] - y * alpha, 0);
-          rdata[ridx + 3] = 255;
-
-          return;
-        }
-
-        for (let i = 0; i < offs.length; i++) {
-          let rx2 = rx + offs[i][0];
-          let ry2 = ry + offs[i][1];
-
-          if (
-            rx2 < 0 ||
-            ry2 < 0 ||
-            rx2 >= raster_image.width ||
-            ry2 >= raster_image.height
-          ) {
-            continue;
-          }
-
-          let ridx = (ry2 * raster_image.width + rx2) * 4;
-
-          rdata[ridx] = Math.max(rdata[ridx] - c * alpha, 0); //*(1.0-k);
-          rdata[ridx + 1] = Math.max(rdata[ridx + 1] - m * alpha, 0);
-          rdata[ridx + 2] = Math.max(rdata[ridx + 2] - y * alpha, 0);
-          rdata[ridx + 3] = 255;
-        }
-      }
-
       clr1[0] = clr[0];
       clr1[1] = clr[1];
       clr1[2] = clr[2];
@@ -2108,20 +1685,20 @@ export class BlueNoise {
         //rdata[ridx] = rdata[ridx+1] = rdata[ridx+2] = 255;
 
         if (bok) {
-          dot(rix, riy, fb, 0, 0, 255, 0);
+          writeDot(this, rix, riy, fb, 0, 0, 255, 0, rasterfac);
         }
 
         //*
         if (rok) {
-          dot(rix, riy, fr, 255, 0, 0, 0);
+          writeDot(this, rix, riy, fr, 255, 0, 0, 0, rasterfac);
         }
 
         if (gok) {
-          dot(rix, riy, fg, 0, 255, 0, 0);
+          writeDot(this, rix, riy, fg, 0, 255, 0, 0, rasterfac);
         }
 
         if (fok) {
-          dot(rix, riy, f, 255, 255, 255, 0);
+          writeDot(this, rix, riy, f, 255, 255, 255, 0, rasterfac);
         }
         //*/
       }
