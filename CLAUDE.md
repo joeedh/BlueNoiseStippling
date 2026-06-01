@@ -122,9 +122,10 @@ commented out). The big inline-data modules `mask_file.ts`, `smoothmask_file.ts`
 ## Built-in presets
 
 The preset dropdown ships curated built-ins (marked `★`, read-only in the UI).
-`Default` is computed from `cconst.defaultConfig` in `scripts/svelte/presets.ts`
-(so it never drifts). The rest are authored **in the app** and baked into the
-bundle via a build step:
+`Default` is `presets/default.json` (it mirrors `cconst.defaultConfig` + the
+identity curves); `scripts/svelte/presets.ts` floats it to the front of the
+dropdown. The rest are authored **in the app** and baked into the bundle via a
+build step:
 
 1. Tune settings/curves in the app, **Save As**, then **Export** (downloads a
    `bn-preset-*.json`).

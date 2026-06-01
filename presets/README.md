@@ -1,8 +1,9 @@
 # Built-in presets
 
-Each `*.json` file here is a **built-in preset** that ships baked into the app
-(alongside the computed `Default` preset). They appear in the preset dropdown
-marked with a `★` and are read-only in the UI.
+Each `*.json` file here is a **built-in preset** that ships baked into the app.
+They appear in the preset dropdown marked with a `★` and are read-only in the
+UI. `default.json` is the `Default` preset (it mirrors `cconst.defaultConfig` +
+the identity curves); `presets.ts` floats it to the front of the dropdown.
 
 ## How to add or update a built-in
 
@@ -32,8 +33,9 @@ The exported preset shape (see `Preset` in `scripts/svelte/presets.ts`):
 
 `settings` is a flat map of `config` scalars; `curves` may contain serialized
 `SPH_CURVE` / `TONE_CURVE` / `DENSITY_CURVE` data (omit or leave `{}` to keep the
-user's current curves). Order in the dropdown follows filename order, after
-`Default`.
+user's current curves). Order in the dropdown follows filename order, except
+`Default` is always floated to the front.
 
-> Note: `Default` is **not** a file here — it is computed from `defaultConfig`
-> in `presets.ts` so it never drifts from the app's current defaults.
+> Note: `default.json` must stay in sync with `cconst.defaultConfig` in
+> `scripts/const.ts`. If you change a default there, re-export the Default preset
+> from the app (or edit `default.json` by hand) and rerun `pnpm presets:build`.

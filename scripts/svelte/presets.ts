@@ -28,27 +28,14 @@ export interface PresetEntry {
 }
 
 // ---- built-ins ----
-// "Default" is computed from the live defaultConfig + freshly-constructed default
-// curves so it never goes stale; the curated presets are generated from
-// presets/*.json by gen-presets.mjs (run via `pnpm presets:build`). See
-// presets/README.md for the authoring workflow.
-function defaultCurves(): Partial<Record<CurveKey, CurveJSON>> {
-  const out: Partial<Record<CurveKey, CurveJSON>> = {};
-  for (const k of CURVE_KEYS) {
-    out[k] = new Curve(k).toJSON();
-  }
-  return out;
-}
-
-const defaultPreset: Preset = {
-  name: "Default",
-  version: PRESET_VERSION,
-  appVersion: APP_VERSION,
-  settings: { ...cconst.defaultConfig },
-  curves: defaultCurves(),
-};
-
-const BUILTINS: Preset[] = [defaultPreset, ...GENERATED_BUILTINS];
+// All built-ins (including "Default") are generated from presets/*.json by
+// gen-presets.mjs (run via `pnpm presets:build`). See presets/README.md for the
+// authoring workflow. "Default" ships as presets/default.json; we just float it
+// to the front so it stays the first entry in the dropdown.
+const BUILTINS: Preset[] = [
+  ...GENERATED_BUILTINS.filter((p) => p.name === "Default"),
+  ...GENERATED_BUILTINS.filter((p) => p.name !== "Default"),
+];
 
 function builtinByName(name: string): Preset | undefined {
   return BUILTINS.find((b) => b.name === name);
