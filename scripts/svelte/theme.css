@@ -48,6 +48,47 @@
   pointer-events: auto;
 }
 
+/* Translucent Run button overlaying the canvas (always visible, both desktop
+   and mobile). Semi-transparent + blurred so the stipple field shows through. */
+.bn-run-overlay {
+  position: fixed;
+  left: 18px;
+  bottom: 18px;
+  z-index: 6;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: rgba(10, 13, 17, 0.42);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  border: 1px solid rgba(84, 224, 199, 0.55);
+  border-radius: 9px;
+  padding: 12px 22px;
+  cursor: pointer;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease;
+}
+.bn-run-overlay:hover {
+  background: rgba(84, 224, 199, 0.2);
+  color: #eafff9;
+}
+.bn-run-overlay:active {
+  transform: scale(0.95);
+}
+.bn-run-overlay:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* Floating toggle + backdrop are desktop-hidden; the media query below turns
    the rail into a slide-in drawer on narrow / portrait screens. */
 .bn-fab {

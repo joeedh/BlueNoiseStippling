@@ -18,6 +18,7 @@
   import Button from "./Button.svelte";
   import CurveEditor from "./CurveEditor.svelte";
   import PresetBar from "./PresetBar.svelte";
+  import { tooltip } from "./tooltip";
 
   // The host AppState exposes the action methods used by the toolbar.
   interface Host {
@@ -67,7 +68,6 @@
   function reset() {
     host.actionReset();
     resyncBag(cfg); // reset() mutates config (e.g. USE_LAB) out-of-band
-    closeOnMobile();
   }
 
   function toggleLoop() {
@@ -95,12 +95,18 @@
   // --- mobile drawer ---
   // On narrow/portrait screens the rail is a slide-in drawer (hidden by
   // default so the canvas gets the full screen); on desktop it's always shown.
+  // It only closes on the ✕ toggle or a backdrop tap — never automatically.
   let panelOpen = $state(false);
-  const isMobile = () => window.matchMedia("(max-width: 768px)").matches;
-  function closeOnMobile() {
-    if (isMobile()) panelOpen = false;
-  }
 </script>
+
+<!-- Translucent Run button overlaid on the canvas, always accessible. -->
+<button
+  class="bn-run-overlay"
+  use:tooltip={"Add another batch of points (Points / Step) and redraw."}
+  onclick={() => host.actionRun()}
+>
+  ▶ Run
+</button>
 
 <!-- Floating toggle (only shown on small screens via CSS) -->
 <button
@@ -129,24 +135,12 @@
   <PresetBar onapply={onApplyPreset} />
 
   <div class="bn-rail__body">
-    <!-- Actions toolbar -->
+    <!-- Actions toolbar (Run lives as a translucent overlay on the canvas) -->
     <div class="bn-actions">
-      <Button
-        label="Run"
-        tip="Add another batch of points (Points / Step) and redraw."
-        variant="accent"
-        onclick={() => {
-          host.actionRun();
-          closeOnMobile();
-        }}
-      />
       <Button
         label="Relax"
         tip="Run one blue-noise relaxation pass to even out point spacing."
-        onclick={() => {
-          host.actionRelax();
-          closeOnMobile();
-        }}
+        onclick={() => host.actionRelax()}
       />
       <Button
         label={loopRunning ? "Stop Loop" : "Start Loop"}
