@@ -4,6 +4,8 @@ import { config, PTOT } from "../const.js";
 import * as colors from "../colors.js";
 import type { BlueNoise } from "../bluenoise.js";
 import { writeDot } from "./raster.js";
+import { del } from "./spatial.js";
+import { calcRadii } from "./radii.js";
 
 export function stepCmykColorMask(
   bn: BlueNoise,
@@ -193,8 +195,8 @@ export function stepCmykColorMask(
 
   if (config.TRI_MODE && !skip_points_display) {
     console.log("regenerating triangulation...");
-    bn.del();
+    del(bn);
   } else if (config.SCALE_POINTS && !skip_points_display) {
-    bn.calc_radii();
+    calcRadii(bn);
   }
 }

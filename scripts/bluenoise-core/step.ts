@@ -27,6 +27,8 @@ import { stepB } from "./step-pattern.js";
 import { stepSmask } from "./step-smask.js";
 import { stepDiffusion } from "./step-diffusion.js";
 import { stepCmykColorMask } from "./step-cmyk.js";
+import { calcDerivatives, del, calcTheta } from "./spatial.js";
+import { calcRadii } from "./radii.js";
 
 // Per-cell mask-evaluation result accumulated by evalMaskCell().
 interface MaskCellResult {
@@ -199,7 +201,7 @@ function appendStepPoint(
   points[pi + POX] = points[pi + POLDX] = points[pi];
   points[pi + POY] = points[pi + POLDY] = points[pi + 1];
 
-  bn.calc_theta(pi);
+  calcTheta(bn, pi);
 }
 
 export function step(
@@ -209,7 +211,7 @@ export function step(
 ): void {
   if (config.RASTER_IMAGE && config.RASTER_MODE === RASTER_MODES.PATTERN) {
     stepB(bn);
-    bn.calc_derivatives();
+    calcDerivatives(bn);
     return;
   }
 
@@ -219,13 +221,13 @@ export function step(
     config.USE_CMYK_MASK
   ) {
     stepCmykColorMask(bn);
-    bn.calc_derivatives();
+    calcDerivatives(bn);
     return;
   }
 
   if (config.RASTER_IMAGE && config.RASTER_MODE === RASTER_MODES.DIFFUSION) {
     bn.cur = stepDiffusion(bn, custom_steps, bn.cur);
-    bn.calc_derivatives();
+    calcDerivatives(bn);
     return;
   } else if (bn.smask !== undefined) {
     stepSmask(bn, custom_steps);
@@ -631,12 +633,12 @@ function stepDefault(
     console.log("\n");
   }
 
-  bn.calc_derivatives();
+  calcDerivatives(bn);
 
   if (config.TRI_MODE && !skip_points_display) {
     console.log("regenerating triangulation...");
-    bn.del();
+    del(bn);
   } else if (config.SCALE_POINTS && !skip_points_display) {
-    bn.calc_radii();
+    calcRadii(bn);
   }
 }

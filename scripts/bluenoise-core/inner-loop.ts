@@ -7,6 +7,7 @@ import * as colors from "../colors.js";
 import type { BlueNoise } from "../bluenoise.js";
 import type { InnerLoopArg, Vec } from "./internal.js";
 import { ditherColor } from "./dither.js";
+import { calcTheta } from "./spatial.js";
 
 export function innerLoop(
   bn: BlueNoise,
@@ -147,7 +148,7 @@ export function innerLoop(
   points[pi + POX] = points[pi + POLDX] = points[pi];
   points[pi + POY] = points[pi + POLDY] = points[pi + 1];
 
-  bn.calc_theta(pi);
+  calcTheta(bn, pi);
 
   return pi;
 }

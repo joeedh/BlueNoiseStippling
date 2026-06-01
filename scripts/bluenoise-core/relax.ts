@@ -15,6 +15,8 @@ import cconst, {
   POY,
 } from "../const.js";
 import type { BlueNoise } from "../bluenoise.js";
+import { calcKdtree, calcTheta, calcDerivatives, del } from "./spatial.js";
+import { calcRadii } from "./radii.js";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const _appstate: any;
@@ -38,7 +40,7 @@ export function relax2(bn: BlueNoise): void {
     r1 = 0,
     pi1 = 0,
     searchr = 0;
-  let tree = bn.calc_kdtree();
+  let tree = calcKdtree(bn);
 
   let anis_w1 = config.ANIS_W1,
     anis_w2 = config.ANIS_W2;
@@ -49,12 +51,12 @@ export function relax2(bn: BlueNoise): void {
     : config.FILTERWID;
   const sqrt3 = Math.sqrt(3.0);
 
-  maxrad = bn.calc_radii();
+  maxrad = calcRadii(bn);
 
   let isize = _appstate.image.width;
 
   //calculate image gradients
-  bn.calc_derivatives();
+  calcDerivatives(bn);
 
   function distmetric(pi1: number, pi2: number): number {
     let x1 = ps[pi1],
@@ -181,16 +183,16 @@ export function relax2(bn: BlueNoise): void {
 
   if (config.RELAX_UPDATE_VECTORS) {
     for (let pi1 = 0; pi1 < ps.length; pi1 += PTOT) {
-      bn.calc_theta(pi1);
+      calcTheta(bn, pi1);
     }
   }
 
   if (config.TRI_MODE) {
     console.log("regenerating triangulation...");
-    bn.del();
+    del(bn);
   }
 
-  bn.calc_radii();
+  calcRadii(bn);
   console.log("done");
 }
 
@@ -441,6 +443,6 @@ export function relax3(bn: BlueNoise): void {
 
   if (config.TRI_MODE) {
     console.log("regenerating triangulation...");
-    bn.del();
+    del(bn);
   }
 }

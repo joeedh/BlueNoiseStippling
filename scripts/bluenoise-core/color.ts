@@ -3,10 +3,11 @@
 import { PTOT, PID, PLVL, PRADIUS2 } from "../const.js";
 import * as colors from "../colors.js";
 import type { BlueNoise } from "../bluenoise.js";
+import { calcKdtree } from "./spatial.js";
 
 export function colordiffuse(bn: BlueNoise): void {
   let ps = bn.points;
-  let tree = bn.calc_kdtree();
+  let tree = calcKdtree(bn);
   let size = bn.gridsize;
 
   let pi1: number,

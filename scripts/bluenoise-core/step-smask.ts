@@ -5,6 +5,8 @@ import * as smoothmask from "../smoothmask.js";
 import type { BlueNoise } from "../bluenoise.js";
 import type { Vec } from "./internal.js";
 import { innerLoop } from "./inner-loop.js";
+import { calcDerivatives, del } from "./spatial.js";
+import { calcRadii } from "./radii.js";
 
 export function stepSmask(bn: BlueNoise, custom_steps?: number): void {
   let args = bn.inner_loop_cachering.next();
@@ -101,14 +103,14 @@ export function stepSmask(bn: BlueNoise, custom_steps?: number): void {
   console.log("\n");
   //}
 
-  bn.calc_derivatives();
+  calcDerivatives(bn);
 
   if (config.TRI_MODE) {
     //} && !skip_points_display) {
     console.log("regenerating triangulation...");
-    bn.del();
+    del(bn);
   } else if (config.SCALE_POINTS) {
     //} && !skip_points_display) {
-    bn.calc_radii();
+    calcRadii(bn);
   }
 }
