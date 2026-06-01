@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tooltip } from "./tooltip";
+  import { tipWithHotkey } from "./media.svelte";
 
   let {
     label,
@@ -7,20 +8,24 @@
     onclick,
     variant = "default",
     active = false,
+    hotkey,
   }: {
     label: string;
     tip: string;
     onclick: () => void;
     variant?: "default" | "accent" | "danger";
     active?: boolean;
+    hotkey?: string;
   } = $props();
+
+  let fullTip = $derived(tipWithHotkey(tip, hotkey));
 </script>
 
 <button
   type="button"
   class="bn-btn {variant}"
   class:active
-  use:tooltip={tip}
+  use:tooltip={fullTip}
   {onclick}
 >
   {label}

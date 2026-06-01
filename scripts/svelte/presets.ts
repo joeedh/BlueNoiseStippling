@@ -4,7 +4,9 @@
 // exported to / imported from .json files.
 
 import cconst, { config, APP_VERSION } from "../const.js";
-import type { Curve, CurveJSON } from "../curve.js";
+import { Curve } from "../curve.js";
+import type { CurveJSON } from "../curve.js";
+import { GENERATED_BUILTINS } from "./builtin-presets.generated.js";
 
 const KEY = "bn6_presets";
 const PRESET_VERSION = 1;
@@ -25,48 +27,28 @@ export interface PresetEntry {
   builtin: boolean;
 }
 
-// ---- built-ins (settings-only; curves keep whatever the user has) ----
-function withDefaults(overrides: Record<string, unknown>): Record<string, unknown> {
-  return { ...cconst.defaultConfig, ...overrides };
+// ---- built-ins ----
+// "Default" is computed from the live defaultConfig + freshly-constructed default
+// curves so it never goes stale; the curated presets are generated from
+// presets/*.json by gen-presets.mjs (run via `pnpm presets:build`). See
+// presets/README.md for the authoring workflow.
+function defaultCurves(): Partial<Record<CurveKey, CurveJSON>> {
+  const out: Partial<Record<CurveKey, CurveJSON>> = {};
+  for (const k of CURVE_KEYS) {
+    out[k] = new Curve(k).toJSON();
+  }
+  return out;
 }
 
-const BUILTINS: Preset[] = [
-  {
-    name: "Default",
-    version: PRESET_VERSION,
-    appVersion: APP_VERSION,
-    settings: withDefaults({}),
-    curves: {},
-  },
-  {
-    name: "Fine Stipple",
-    version: PRESET_VERSION,
-    appVersion: APP_VERSION,
-    settings: withDefaults({
-      DIMEN: 600,
-      DRAW_RMUL: 0.8,
-      SCALE_POINTS: true,
-      HIST_EQUALIZE: true,
-      TRI_MODE: false,
-      DRAW_STICKS: false,
-    }),
-    curves: {},
-  },
-  {
-    name: "Bold Sticks",
-    version: PRESET_VERSION,
-    appVersion: APP_VERSION,
-    settings: withDefaults({
-      DIMEN: 180,
-      DRAW_STICKS: true,
-      FANCY_STICKS: true,
-      ANISOTROPY: true,
-      STICK_LENGTH: 3.5,
-      STICK_WIDTH: 2.5,
-    }),
-    curves: {},
-  },
-];
+const defaultPreset: Preset = {
+  name: "Default",
+  version: PRESET_VERSION,
+  appVersion: APP_VERSION,
+  settings: { ...cconst.defaultConfig },
+  curves: defaultCurves(),
+};
+
+const BUILTINS: Preset[] = [defaultPreset, ...GENERATED_BUILTINS];
 
 function builtinByName(name: string): Preset | undefined {
   return BUILTINS.find((b) => b.name === name);
@@ -170,9 +152,10 @@ export function applyPreset(name: string): boolean {
 }
 
 // ---- import / export ----
+// Export captures the CURRENT live config + all three curves (not the last-saved
+// snapshot), so what you see in the app is what lands in the file.
 export function exportPreset(name: string): void {
-  const p = getPreset(name);
-  if (!p) return;
+  const p = capturePreset(name);
 
   const blob = new Blob([JSON.stringify(p, null, 2)], {
     type: "application/json",

@@ -6,8 +6,9 @@
   "description": "Blue Noise Stippling generator",
   "packageManager": "pnpm@10.33.2",
   "scripts": {
-    "dev": "node dev.mjs",
-    "build": "node build.mjs",
+    "dev": "node gen-presets.mjs && node dev.mjs",
+    "build": "node gen-presets.mjs && node build.mjs",
+    "presets:build": "node gen-presets.mjs",
     "typecheck": "tsgo --noEmit",
     "eslint": "eslint .",
     "format": "prettier --write .",

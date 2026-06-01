@@ -7,6 +7,7 @@ export default tseslint.config(
     ignores: [
       "dist/**",
       "node_modules/**",
+      ".claude/**",
       "playwright-report/**",
       "test-results/**",
       // Vendored / legacy / non-source files.

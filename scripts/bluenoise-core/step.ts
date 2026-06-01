@@ -550,9 +550,11 @@ function stepDefault(
         }
       }
     } else {
-      if (ci === undefined) {
-        ci = colors.closest_color_fast(clr);
-      }
+      //if (1||ci === undefined) {
+      ci = config.DITHER_COLORS
+        ? colors.closest_color(clr, undefined, config.DITHER_RAND_FAC)
+        : colors.closest_color_fast(clr);
+      //}
       let clr2 = colors.colors[ci];
 
       if (clr2 === undefined) {

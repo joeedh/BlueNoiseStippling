@@ -186,11 +186,34 @@
   }
   .bn-presets__select {
     flex: 1 1 auto;
+    position: relative;
+    display: flex;
+    align-items: center;
   }
   .bn-presets__select select {
     width: 100%;
+    appearance: none;
     font-family: var(--font-ui);
     font-size: 12px;
+    color: var(--accent);
+    background: var(--surface-3);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 5px 22px 5px 8px;
+    cursor: pointer;
+  }
+  .bn-presets__select select:focus-visible {
+    outline: 1px solid var(--accent);
+  }
+  .bn-presets__select .bn-select__caret {
+    position: absolute;
+    right: 7px;
+    font-size: 9px;
+    color: var(--text-dim);
+    pointer-events: none;
+  }
+  .bn-presets__select option {
+    background: var(--surface);
     color: var(--text);
   }
   .bn-presets__btn {

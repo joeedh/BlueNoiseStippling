@@ -48,13 +48,18 @@
   pointer-events: auto;
 }
 
-/* Translucent Run button overlaying the canvas (always visible, both desktop
-   and mobile). Semi-transparent + blurred so the stipple field shows through. */
-.bn-run-overlay {
+/* Translucent Run / Load Image buttons overlaying the canvas (always visible,
+   both desktop and mobile). Semi-transparent + blurred so the stipple field
+   shows through. */
+.bn-overlay-bar {
   position: fixed;
   left: 18px;
   bottom: 18px;
   z-index: 6;
+  display: inline-flex;
+  gap: 10px;
+}
+.bn-run-overlay {
   pointer-events: auto;
   display: inline-flex;
   align-items: center;
@@ -87,6 +92,16 @@
 .bn-run-overlay:focus-visible {
   outline: 1px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* Secondary overlay button (Load Image): muted tone so Run stays the accent. */
+.bn-load-overlay {
+  color: var(--text, #c9d4d0);
+  border-color: rgba(160, 176, 170, 0.45);
+}
+.bn-load-overlay:hover {
+  background: rgba(160, 176, 170, 0.18);
+  color: #eafff9;
 }
 
 /* Floating toggle + backdrop are desktop-hidden; the media query below turns
