@@ -8,7 +8,7 @@ export const GENERATED_BUILTINS: Preset[] = [
     version: 1,
     appVersion: 0.6,
     settings: {
-      DIMEN: 180,
+      DIMEN: 270,
       HIGH_QUALITY_RASTER: false,
       ANISOTROPY: true,
       ANIS_W1: 0.6,
@@ -45,7 +45,7 @@ export const GENERATED_BUILTINS: Preset[] = [
       SHARPNESS: 0.5,
       SHARPEN_LUMINENCE: true,
       SHARPEN: true,
-      USE_LAB: true,
+      USE_LAB: false,
       RASTER_IMAGE: false,
       USE_MERSENNE: false,
       TRI_MODE: false,
@@ -136,6 +136,22 @@ export const GENERATED_BUILTINS: Preset[] = [
                 tangent: 1,
               },
               {
+                "0": 0.9024993896484376,
+                "1": 0.21624994277954113,
+                eid: 4,
+                flag: 1,
+                deg: 3,
+                tangent: 1,
+              },
+              {
+                "0": 0.9424995422363281,
+                "1": 0.09124994277954113,
+                eid: 3,
+                flag: 1,
+                deg: 3,
+                tangent: 1,
+              },
+              {
                 "0": 1,
                 "1": 1,
                 eid: 2,
@@ -146,7 +162,7 @@ export const GENERATED_BUILTINS: Preset[] = [
             ],
             deg: 6,
             eidgen: {
-              _cur: 3,
+              _cur: 5,
             },
           },
           {
@@ -179,6 +195,22 @@ export const GENERATED_BUILTINS: Preset[] = [
                 tangent: 1,
               },
               {
+                "0": 0.6074996948242188,
+                "1": 0.3162500381469727,
+                eid: 4,
+                flag: 0,
+                deg: 3,
+                tangent: 1,
+              },
+              {
+                "0": 0.7074989318847655,
+                "1": 0.24125003814697266,
+                eid: 3,
+                flag: 1,
+                deg: 3,
+                tangent: 1,
+              },
+              {
                 "0": 1,
                 "1": 1,
                 eid: 2,
@@ -189,7 +221,7 @@ export const GENERATED_BUILTINS: Preset[] = [
             ],
             deg: 6,
             eidgen: {
-              _cur: 3,
+              _cur: 5,
             },
           },
           {
