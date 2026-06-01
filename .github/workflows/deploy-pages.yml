@@ -3,7 +3,7 @@ name: Deploy to GitHub Pages
 on:
   # Deploy whenever the default branch updates...
   push:
-    branches: [master, typescript-port]
+    branches: [master]
   # ...and allow manual runs (e.g. to test from a feature branch).
   workflow_dispatch:
 
