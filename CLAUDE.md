@@ -26,6 +26,7 @@ removed.
 | `pnpm format`    | Format with the **`@pathtx/prettier`** fork (`prettier --write .`).                                                                                             |
 | `pnpm test`      | vitest unit tests (`tests/**/*.test.ts`, jsdom).                                                                                                                |
 | `pnpm test:e2e`  | Playwright e2e (`e2e/`) — boots the app via the dev server (port 5733), drives a real image through the pipeline, asserts non-blank render + no console errors. |
+| `pnpm presets:build` | Regenerate `scripts/svelte/builtin-presets.generated.ts` from `presets/*.json` (see "Built-in presets"). Runs automatically before `dev`/`build`.                |
 
 Entry point: `index.html` loads the bundled `appstate.ts` (plus the generated
 `bundle.css`), which calls `appstate.start()` on window load. (`bluenoise6.html`
@@ -104,8 +105,6 @@ when touching `bluenoise.ts`/`draw.ts`/`smoothmask.ts`.
   scratch/wiring, custom `Math.*` like `Math.fract`/`Math.tent`, the `Symbol.keystr`
   symbol, and the vendored `Delaunay` global) — this is the one place `any` is used
   freely (an explicit boundary for the dynamic legacy globals).
-- `scripts/dat.gui.d.ts` declares the vendored, untyped `dat` global (`dat.GUI`) as
-  `any`; `scripts/dat.gui.js` stays vendored JavaScript (excluded from typecheck).
 - The `CircleRender` and `SVGExporter` classes are intentional **duck-typed
   stand-ins** for a `CanvasRenderingContext2D`; the few `as unknown as` casts where
   they're passed to `renderImage`/the drawer are deliberate and commented.
@@ -113,10 +112,30 @@ when touching `bluenoise.ts`/`draw.ts`/`smoothmask.ts`.
 ## Vendored / dead files (not ported, excluded from the build)
 
 `scripts/require.js` (unused AMD loader), `scripts/relax_worker.js` (a worker
-that is never instantiated), `scripts/typesystem.js` (empty). The big inline-data
-modules `mask_file.ts`, `smoothmask_file.ts`, `flowersData.ts` are just
-string-blob exports. (The vendored `dat.gui.js`/`dat.gui.d.ts` were removed when
-the UI was ported to Svelte.)
+that is never instantiated), `scripts/typesystem.js` (empty), and
+`scripts/spectrum.ts` (an intentionally-empty `export {}` placeholder kept only
+so the `import * as spectrum` in `appstate.ts` resolves; the spectrum feature is
+commented out). The big inline-data modules `mask_file.ts`, `smoothmask_file.ts`,
+`flowersData.ts` are just string-blob exports. (The vendored
+`dat.gui.js`/`dat.gui.d.ts` were removed when the UI was ported to Svelte.)
+
+## Built-in presets
+
+The preset dropdown ships curated built-ins (marked `★`, read-only in the UI).
+`Default` is computed from `cconst.defaultConfig` in `scripts/svelte/presets.ts`
+(so it never drifts). The rest are authored **in the app** and baked into the
+bundle via a build step:
+
+1. Tune settings/curves in the app, **Save As**, then **Export** (downloads a
+   `bn-preset-*.json`).
+2. Drop that file into `presets/` (kebab-case name).
+3. `pnpm presets:build` regenerates `scripts/svelte/builtin-presets.generated.ts`
+   (committed; also auto-run before `dev`/`build`). `presets.ts` concatenates
+   `[Default, ...GENERATED_BUILTINS]`.
+
+The generator (`gen-presets.mjs`) validates each file the same way
+`importPresetFile()` does. Don't hand-edit the generated module. See
+`presets/README.md`.
 
 ## Gotchas
 

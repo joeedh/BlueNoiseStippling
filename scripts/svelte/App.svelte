@@ -19,6 +19,11 @@
   import CurveEditor from "./CurveEditor.svelte";
   import PresetBar from "./PresetBar.svelte";
   import { tooltip } from "./tooltip";
+  import { tipWithHotkey } from "./media.svelte";
+
+  let runTip = $derived(
+    tipWithHotkey("Add another batch of points (Points / Step) and redraw.", "D"),
+  );
 
   // The host AppState exposes the action methods used by the toolbar.
   interface Host {
@@ -99,14 +104,23 @@
   let panelOpen = $state(false);
 </script>
 
-<!-- Translucent Run button overlaid on the canvas, always accessible. -->
-<button
-  class="bn-run-overlay"
-  use:tooltip={"Add another batch of points (Points / Step) and redraw."}
-  onclick={() => host.actionRun()}
->
-  ▶ Run
-</button>
+<!-- Translucent Run + Load Image buttons overlaid on the canvas, always accessible. -->
+<div class="bn-overlay-bar">
+  <button
+    class="bn-run-overlay"
+    use:tooltip={runTip}
+    onclick={() => host.actionRun()}
+  >
+    ▶ Run
+  </button>
+  <button
+    class="bn-run-overlay bn-load-overlay"
+    use:tooltip={"Choose a raster image to stipple."}
+    onclick={() => host.loadImageDialog()}
+  >
+    Load Image
+  </button>
+</div>
 
 <!-- Floating toggle (only shown on small screens via CSS) -->
 <button
@@ -140,6 +154,7 @@
       <Button
         label="Relax"
         tip="Run one blue-noise relaxation pass to even out point spacing."
+        hotkey="K"
         onclick={() => host.actionRelax()}
       />
       <Button
@@ -151,12 +166,8 @@
       <Button
         label="Reset"
         tip="Reinitialize the algorithm with the current settings (needed after changing Density)."
+        hotkey="R"
         onclick={reset}
-      />
-      <Button
-        label="Load Image"
-        tip="Choose a raster image to stipple."
-        onclick={() => host.loadImageDialog()}
       />
       <Button
         label="Load Mask"
@@ -215,6 +226,7 @@
             {#if curves[field.key]}
               <CurveEditor
                 curve={curves[field.key]}
+                label={field.label}
                 tip={field.tooltip}
                 rev={curveRev}
                 onsave={() => commit(false)}

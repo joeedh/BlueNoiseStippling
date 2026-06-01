@@ -258,13 +258,13 @@ export class BlueNoise {
         let offx = j % mscale,
           offy = ~~(j / mscale);
 
-        (mx = (ix + offx) % cw), (my = (iy + offy) % ch);
+        ((mx = (ix + offx) % cw), (my = (iy + offy) % ch));
         let midx1 = (my * cw + mx) * 4;
 
-        (mx = (ix + 3 + offx) % cw), (my = (iy + offy) % ch);
+        ((mx = (ix + 3 + offx) % cw), (my = (iy + offy) % ch));
         let midx2 = (my * cw + mx) * 4;
 
-        (mx = (ix + 3 + offx) % cw), (my = (iy + 3 + offy) % ch);
+        ((mx = (ix + 3 + offx) % cw), (my = (iy + 3 + offy) % ch));
         let midx3 = (my * cw + mx) * 4;
 
         if (mask[midx1] > 1) {
@@ -492,7 +492,7 @@ export class BlueNoise {
     //let linear_threshold = ret[4];
 
     f = ret[2];
-    (x = ret[0]), (y = ret[1]), (f = ret[2]);
+    ((x = ret[0]), (y = ret[1]), (f = ret[2]));
 
     let ok = 1.0 - f >= threshold;
 
@@ -615,7 +615,7 @@ export class BlueNoise {
       if (config.SPECIAL_OFFSETS) {
         let co2 = p.evaluate(1.0 - f);
 
-        (x = co2[0]), (y = co2[1]);
+        ((x = co2[0]), (y = co2[1]));
 
         x = x / size3 + ix / size3;
         y = y / size3 + iy / size3;
@@ -767,7 +767,7 @@ export class BlueNoise {
       x /= size;
       y /= size;
 
-      (x = (x - 0.5) * 2.0), (y = (y - 0.5) * 2.0);
+      ((x = (x - 0.5) * 2.0), (y = (y - 0.5) * 2.0));
 
       let clr = this.sampler!(x, y, size, 1.0);
 
@@ -1108,11 +1108,11 @@ export class BlueNoise {
     };
 
     for (pi1 = 0; pi1 < ps.length; pi1 += PTOT) {
-      (x1 = ps[pi1]),
+      ((x1 = ps[pi1]),
         (y1 = ps[pi1 + 1]),
         (color1 = ps[pi1 + PID]),
         (r1 = ps[pi1 + PRADIUS2]),
-        (gen1 = ps[pi1 + PLVL]);
+        (gen1 = ps[pi1 + PLVL]));
 
       let i = (pi1 / PTOT) * 4;
       let color = colors.colors[color1];
@@ -1320,7 +1320,7 @@ export class BlueNoise {
       x /= size;
       y /= size;
 
-      (x = (x - 0.5) * 2.0), (y = (y - 0.5) * 2.0);
+      ((x = (x - 0.5) * 2.0), (y = (y - 0.5) * 2.0));
 
       let clr = this.sampler!(x, y, size, 1.0);
 
@@ -1589,7 +1589,7 @@ export class BlueNoise {
       x /= size;
       y /= size;
 
-      (x = (x - 0.5) * 2.0), (y = (y - 0.5) * 2.0);
+      ((x = (x - 0.5) * 2.0), (y = (y - 0.5) * 2.0));
 
       let clr = this.sampler!(x, y, size, 1.0);
 
@@ -2050,9 +2050,11 @@ export class BlueNoise {
           }
         }
       } else {
-        if (ci === undefined) {
-          ci = colors.closest_color_fast(clr);
-        }
+        //if (1||ci === undefined) {
+          ci = config.DITHER_COLORS
+            ? colors.closest_color(clr, undefined, config.DITHER_RAND_FAC)
+            : colors.closest_color_fast(clr);
+        //}
         let clr2 = colors.colors[ci];
 
         if (clr2 === undefined) {
@@ -2340,7 +2342,7 @@ export class BlueNoise {
         y = ps[pi + 1];
 
       if (orig_cos) {
-        (x = ps[pi + POX]), (y = ps[pi + POY]);
+        ((x = ps[pi + POX]), (y = ps[pi + POY]));
       }
 
       tree.insert(x, y, pi);
@@ -2461,9 +2463,9 @@ export class BlueNoise {
       let x, y;
 
       if (use_orig_cos) {
-        (x = ps[i + POX]), (y = ps[i + POY]);
+        ((x = ps[i + POX]), (y = ps[i + POY]));
       } else {
-        (x = ps[i]), (y = ps[i + 1]);
+        ((x = ps[i]), (y = ps[i + 1]));
       }
     }
 
@@ -2528,10 +2530,10 @@ export class BlueNoise {
         continue;
       }
 
-      (ix = (x * 0.5 + 0.5) * size + 0.0001),
-        (iy = (y * 0.5 + 0.5) * size + 0.0001);
-      (x1 = x), (y1 = y), (ix1 = ix), (iy1 = iy);
-      (minr = 1e17), (maxr = -1e17), (avgr = 0);
+      ((ix = (x * 0.5 + 0.5) * size + 0.0001),
+        (iy = (y * 0.5 + 0.5) * size + 0.0001));
+      ((x1 = x), (y1 = y), (ix1 = ix), (iy1 = iy));
+      ((minr = 1e17), (maxr = -1e17), (avgr = 0));
       tot = 0;
 
       kd.forEachPoint(x, y, maxrad, pointcallback, this);
@@ -2621,7 +2623,7 @@ export class BlueNoise {
 
     for (let i = 0; i < vcells.length; i += config.MAX_VCELL_SIZE) {
       let pi = i / config.MAX_VCELL_SIZE;
-      (x = ps[pi * PTOT]), (y = ps[pi * PTOT + 1]);
+      ((x = ps[pi * PTOT]), (y = ps[pi * PTOT + 1]));
 
       for (let j = 0; j < config.MAX_VCELL_SIZE; j++) {
         sortlst[j] = vcells[i + j];
@@ -3006,7 +3008,7 @@ export class BlueNoise {
          //return dis*0.0025*(1.0-i1*i1); //Math.max(dis * (0.25 + dis2), 0.0); //ps[pi1+PRADIUS2];// + 0.35*(2.0-tdis)*ps[pi1+PRADIUS2];
          //*/
 
-        (dx = x2 - x1), (dy = y2 - y1);
+        ((dx = x2 - x1), (dy = y2 - y1));
 
         dx1 = Math.sin(
           ps[pi1 + PTH] + (config.STICK_ROT / 180.0) * Math.PI + Math.PI * 0.5,
@@ -3108,14 +3110,14 @@ export class BlueNoise {
 
     console.log("relaxing (sph). . .");
     for (pi1 = 0; pi1 < ps.length; pi1 += PTOT) {
-      (x1 = ps[pi1]), (y1 = ps[pi1 + 1]), (r1 = ps[pi1 + PRADIUS2]);
+      ((x1 = ps[pi1]), (y1 = ps[pi1 + 1]), (r1 = ps[pi1 + PRADIUS2]));
 
       //r1 = minrad*0.5;
       searchr = r1 * searchfac;
       sumdx = sumdy = sumw = 0.0;
 
       //tree.forEachPoint(x1, y1, searchr, callback, this);
-      (p[0] = x1), (p[1] = y1);
+      ((p[0] = x1), (p[1] = y1));
 
       /*
       for (let pi2=0; pi2<ps.length; pi2 += PTOT) {

@@ -373,19 +373,51 @@ export class AppState {
     console.log("got file", e, files);
     if (files.length === 0) return;
 
+    const MAX_DIMEN = 1400;
     let reader = new FileReader();
     let this2 = this;
     reader.onload = function (e: ProgressEvent<FileReader>) {
       let img: AppImage = new Image();
       const result = e.target!.result as string; // readAsDataURL always yields a string
 
+      img.onload = function () {
+        const max = Math.max(img.width, img.height);
+
+        // Enforce a maximum image dimension; downscale oversized images so the
+        // larger side is at most MAX_DIMEN before they enter the pipeline.
+        if (max > MAX_DIMEN) {
+          const scale = MAX_DIMEN / max;
+          const w = Math.max(1, Math.round(img.width * scale));
+          const h = Math.max(1, Math.round(img.height * scale));
+
+          const canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          const g = canvas.getContext("2d")!;
+          g.drawImage(img, 0, 0, w, h);
+
+          const scaled: AppImage = new Image();
+          const url = canvas.toDataURL();
+          scaled.src = url;
+          window._image_url = url;
+
+          scaled.onload = function () {
+            this2.on_image_read(scaled, function () {
+              this2.source_image_read(scaled);
+            });
+          };
+
+          return;
+        }
+
+        window._image_url = result;
+
+        this2.on_image_read(img, function () {
+          this2.source_image_read(img);
+        });
+      };
+
       img.src = result;
-
-      window._image_url = result;
-
-      this2.on_image_read(img, function () {
-        this2.source_image_read(img);
-      });
     };
 
     reader.readAsDataURL(files[0]);

@@ -13,11 +13,13 @@
 
   let {
     curve,
+    label,
     tip,
     onsave,
     rev = 0,
   }: {
     curve: Curve;
+    label: string;
     tip: string;
     onsave: () => void;
     // bumped by the parent when the curve is replaced out-of-band (preset load)
@@ -320,6 +322,11 @@
 </script>
 
 <div class="bn-curve">
+  <div class="bn-curve__title" use:tooltip={tip}>
+    {label}
+    <span class="bn-info" aria-hidden="true">i</span>
+  </div>
+
   <Select
     label="Type"
     tip="Curve generator: an editable B-spline, a math expression, or a parametric gaussian."
@@ -411,6 +418,17 @@
 <style>
   .bn-curve {
     padding: 4px 16px 8px;
+  }
+  .bn-curve__title {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin: 2px 0 6px;
   }
   .bn-curve__canvas {
     width: 200px;
