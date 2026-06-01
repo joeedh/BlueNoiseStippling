@@ -63,6 +63,10 @@
   }
 
   .bn-rail {
+    /* position:relative so z-index actually applies — otherwise the static
+       rail paints *below* the positioned backdrop and the backdrop swallows
+       every tap on the panel (closing it). */
+    position: relative;
     transform: translateX(105%);
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 2;
