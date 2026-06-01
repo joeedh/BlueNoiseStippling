@@ -6,6 +6,7 @@ import { config, PTOT, PRADIUS, PINTEN, PID, PRADIUS2, POX, POY, POLDX, POLDY } 
 import * as colors from "../colors.js";
 import type { BlueNoise } from "../bluenoise.js";
 import type { InnerLoopArg, Vec } from "./internal.js";
+import { ditherColor } from "./dither.js";
 
 export function innerLoop(
   bn: BlueNoise,
@@ -96,14 +97,8 @@ export function innerLoop(
   //let ci = colors.closest_color_fast(clr, colorout, 0.0);
   let ci;
   if (config.DITHER_COLORS) {
-    let ditherfac = config.DITHER_RAND_FAC * Math.random();
-
-    ci = colors.closest_color(clr, undefined, 0.0);
-
-    let clr2 = colors.colors[ci];
-    let err = colors.colordis(clr, clr2);
-
-    ci = colors.closest_color(clr, undefined, err);
+    // Unified palette dithering (shared with PATTERN / default step).
+    ci = ditherColor(bn, clr, f);
   } else {
     ci = colors.closest_color_fast(clr);
   }

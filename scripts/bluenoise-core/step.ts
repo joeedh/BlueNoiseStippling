@@ -22,6 +22,7 @@ import {
 import * as colors from "../colors.js";
 import type { BlueNoise } from "../bluenoise.js";
 import { writeDot } from "./raster.js";
+import { ditherColor } from "./dither.js";
 import { stepB } from "./step-pattern.js";
 import { stepSmask } from "./step-smask.js";
 import { stepDiffusion } from "./step-diffusion.js";
@@ -430,7 +431,8 @@ function stepDefault(
       if (config.DITHER_COLORS) {
         if (config.DITHER_BLUE)
           colors.ditherSampler.seed(bn.getPixelSeed(1.0 - threshold));
-        ci = colors.closest_color(clr);
+        // Unified palette dithering (shared with PATTERN / point placement).
+        ci = ditherColor(bn, clr, f);
       } else {
         ci = colors.closest_color_fast(clr);
       }

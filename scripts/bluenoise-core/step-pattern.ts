@@ -4,6 +4,7 @@
 import { config, RASTER_MODES } from "../const.js";
 import * as colors from "../colors.js";
 import type { BlueNoise } from "../bluenoise.js";
+import { ditherColor } from "./dither.js";
 
 export function stepB(
   bn: BlueNoise,
@@ -156,107 +157,10 @@ export function stepB(
       dclr = colors.rgb_to_lab(clr[0], clr[1], clr[2]);
     }
 
-    if (config.DITHER_COLORS) {
-      let hsv = colors.rgb_to_hsv(clr[0], clr[1], clr[2]);
-      let clr2 = colors.hsv_to_rgb(hsv[0], 1.0, hsv[2]);
-
-      let f1 = clr2[0] * 0.4 + clr2[1] * 0.6 + clr2[2] * 0.2;
-
-      nextout.length = 5;
-      let ci = colors.closest_color(clr2, nextout, 0.0, true);
-
-      if (ci === undefined) {
-        ci = 0;
-      }
-
-      //let err = colors.colordis_not_diffusing(colors.colors[ci], clr)*0.97;
-      let c2 = colors.colors[ci];
-      let dx = c2[0] - clr2[0],
-        dy = c2[1] - clr2[1],
-        dz = c2[2] - clr2[2];
-      let err = dx * dx + dy * dy + dz * dz;
-
-      err = err !== 0.0 ? Math.sqrt(err) : 0.0;
-
-      err = Math.sqrt(colors.colordis_not_diffusing(clr2, c2));
-
-      //err = colors.lab_colordis(colors.rgb_to_lab(clr2[0], clr2[1], clr2[2]), colors.rgb_to_lab(c2[0], c2[1], c2[2]));
-      //err = Math.pow(Math.abs(err), 0.125);
-
-      for (let k = 0; k < nextout.length; k++) {
-        if (nextout[k] === undefined) {
-          nextout.length = k;
-          break;
-        }
-      }
-
-      let fac2 = Math.pow(fac, 1.0);
-      fac2 = Math.pow(fac2, 1.0) / 4.0;
-      fac2 *= 1.0 + err * err * 7.0 * f1;
-
-      fac2 = Math.min(Math.max(fac2, 0.0), 1.0);
-
-      let fi = ~~(fac2 * nextout.length * 0.999999);
-      //let fi = 0;
-
-      /*
-      if (err > fac) {
-        fi = 1;
-      } else {
-        fi = 0;
-      }
-      fi = Math.min(Math.max(fi, 0.0), nextout.length-1);
-      //*/
-
-      ci = nextout[fi];
-      let sat = 1.0 - hsv[1];
-
-      if (hsv[2] * sat > fac) {
-        ci = 0;
-      }
-
-      for (let k = 0; k < 3; k++) {
-        clr[k] = colors.colors[ci][k];
-      }
-
-      //clr[0] = clr[1] = clr[2] = fac;
-    } else {
-      let ci = colors.closest_color(clr, nextout, 0.0, true);
-
-      let clr2 = colors.colors[ci];
-      let err = colors.colordis_simple(clr, clr2);
-      let l = colors.colors.length / 8 + 4;
-      l = 5;
-      if (window._l !== undefined) {
-        l = window._l;
-      }
-
-      fac = 1.0 - fac;
-
-      fac = ~~(fac * l) / l;
-
-      //fac = Math.random();
-      dfac = fac * (window._f !== undefined ? window._f : 1.0);
-      dfac =
-        (((Math.fract(dfac) - 0.5) * 2.0) / l) *
-        (window._f2 !== undefined ? window._f2 : 1.0);
-      clr[0] += dfac;
-      clr[1] += dfac;
-      clr[2] += dfac;
-
-      ci = colors.closest_color(clr, nextout, 0.0, true);
-
-      let hsv = colors.rgb_to_hsv(clr[0], clr[1], clr[2]);
-      let sat = 1.0 - hsv[1];
-
-      if (ci === undefined || hsv[2] * sat > fac) {
-        ci = 0;
-      }
-
-      for (let k = 0; k < 3; k++) {
-        clr[k] = colors.colors[ci][k];
-      }
-      //clr[0]=clr[1]=clr[2]=fac>0.8;
+    // Unified palette dithering (was step_b's own HSV/brightness branches).
+    let ci = ditherColor(bn, clr, fac);
+    for (let k = 0; k < 3; k++) {
+      clr[k] = colors.colors[ci][k];
     }
 
     /*
