@@ -1,21 +1,44 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
-    <title>Blue Noise 6</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Blue Noise Stippling</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./bundle.css" />
     <style>
-      #propdiv {
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #0e1014;
+        overflow: hidden;
+      }
+
+      /* The Svelte control panel mounts here as a fixed right-hand rail. */
+      #ui-root {
+        position: fixed;
+        top: 0;
+        right: 0;
+        height: 100%;
+        z-index: 10;
+      }
+
+      #canvas {
         position: absolute;
-        left: 70%;
-        overflow-y: scroll;
-        height: 80%;
+        top: 0;
+        left: 0;
       }
 
-      #input {
-        visibility: hidden;
-      }
-
+      /* Hidden file inputs, clicked programmatically from the UI. */
+      #input,
       #input2 {
-        visibility: hidden;
+        position: absolute;
+        width: 0;
+        height: 0;
+        opacity: 0;
+        pointer-events: none;
       }
     </style>
     <script type="module">
@@ -28,14 +51,9 @@
   </head>
 
   <body>
-    <div id="propdiv">
-      <p>
-        <input type="file" id="input" />
-        <input type="file" id="input2" />
-      </p>
-
-      <ul id="form"></ul>
-    </div>
-    <canvas id="canvas"> </canvas>
+    <canvas id="canvas"></canvas>
+    <div id="ui-root"></div>
+    <input type="file" id="input" />
+    <input type="file" id="input2" />
   </body>
 </html>
