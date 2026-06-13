@@ -20,7 +20,7 @@
     "@pathtx/prettier": "3.3.0-dev",
     "@playwright/test": "^1.60.0",
     "@typescript/native-preview": "7.0.0-dev.20260527.2",
-    "esbuild": "^0.28.0",
+    "esbuild": "^0.28.1",
     "esbuild-svelte": "^0.9.5",
     "eslint": "^9.39.0",
     "globals": "^16.0.0",
